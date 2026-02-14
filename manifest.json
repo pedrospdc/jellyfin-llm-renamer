@@ -12,6 +12,14 @@
         "version": "1.0.0.0",
         "changelog": "Initial release with support for Movies, TV Shows, and Music. Includes built-in model downloader with progress tracking.",
         "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/pedrospdc/jellyfin-llm-renamer/releases/download/v0.0.2/jellyfin-llm-renamer-v0.0.2.zip",
+        "checksum": "cdb51c35d757f9de44f27be711669c1c",
+        "timestamp": "2026-02-14T03:32:38Z"
+      },
+      {
+        "version": "1.0.0.0",
+        "changelog": "Initial release with support for Movies, TV Shows, and Music. Includes built-in model downloader with progress tracking.",
+        "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/pedrospdc/jellyfin-llm-renamer/releases/download/v0.0.1/jellyfin-llm-renamer-v0.0.1.zip",
         "checksum": "595ca4c283d30338830d98ac11cfa7d8",
         "timestamp": "2026-02-14T03:21:51Z"
