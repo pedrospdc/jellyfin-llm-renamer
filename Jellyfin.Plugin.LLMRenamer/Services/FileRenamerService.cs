@@ -17,6 +17,7 @@ public partial class FileRenamerService
     private readonly ILogger<FileRenamerService> _logger;
     private readonly ILlmService _llmService;
     private readonly ILibraryManager _libraryManager;
+    private HashSet<string>? _libraryPaths;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="FileRenamerService"/> class.
@@ -29,6 +30,40 @@ public partial class FileRenamerService
         _logger = logger;
         _llmService = llmService;
         _libraryManager = libraryManager;
+    }
+
+    private HashSet<string> GetLibraryPaths()
+    {
+        if (_libraryPaths != null)
+        {
+            return _libraryPaths;
+        }
+
+        _libraryPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            var virtualFolders = _libraryManager.GetVirtualFolders();
+            foreach (var folder in virtualFolders)
+            {
+                foreach (var path in folder.Locations)
+                {
+                    _libraryPaths.Add(path);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to get library paths");
+        }
+
+        return _libraryPaths;
+    }
+
+    private bool IsLibraryRoot(string directoryPath)
+    {
+        var normalized = directoryPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return GetLibraryPaths().Any(lp =>
+            string.Equals(normalized, lp.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
@@ -94,6 +129,7 @@ public partial class FileRenamerService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generating rename suggestion for {ItemName}", item.Name);
+                PluginLog.Error($"Error generating suggestion for {item.Name}: {ex.Message}");
             }
         }
 
@@ -115,6 +151,7 @@ public partial class FileRenamerService
         if (IsMovieFileNameCorrect(originalFileName, movie))
         {
             _logger.LogDebug("Movie file already matches convention, skipping: {FileName}", originalFileName);
+            PluginLog.Info($"Skipped (already correct): {originalFileName}");
             return null;
         }
 
@@ -149,6 +186,7 @@ public partial class FileRenamerService
         if (IsEpisodeFileNameCorrect(originalFileName, episode))
         {
             _logger.LogDebug("Episode file already matches convention, skipping: {FileName}", originalFileName);
+            PluginLog.Info($"Skipped (already correct): {originalFileName}");
             return null;
         }
 
@@ -186,6 +224,7 @@ public partial class FileRenamerService
         if (IsMusicFileNameCorrect(originalFileName, audio))
         {
             _logger.LogDebug("Music file already matches convention, skipping: {FileName}", originalFileName);
+            PluginLog.Info($"Skipped (already correct): {originalFileName}");
             return null;
         }
 
@@ -218,6 +257,13 @@ public partial class FileRenamerService
             yield break;
         }
 
+        // Don't rename library root folders
+        if (IsLibraryRoot(dir))
+        {
+            PluginLog.Info($"Skipped directory rename (library root): {dir}");
+            yield break;
+        }
+
         var dirName = Path.GetFileName(dir);
         var parentDir = Path.GetDirectoryName(dir);
         if (string.IsNullOrEmpty(parentDir) || string.IsNullOrEmpty(dirName))
@@ -226,9 +272,18 @@ public partial class FileRenamerService
         }
 
         var year = movie.ProductionYear;
+        var movieName = movie.Name ?? string.Empty;
+
+        // Strip existing year suffix to avoid "Title (2002) (2002)"
+        var yearSuffix = YearSuffixRegex().Match(movieName);
+        if (yearSuffix.Success)
+        {
+            movieName = movieName[..yearSuffix.Index].TrimEnd();
+        }
+
         var newDirName = year.HasValue
-            ? $"{movie.Name} ({year})"
-            : movie.Name;
+            ? $"{movieName} ({year})"
+            : movieName;
 
         newDirName = SanitizeDirectoryName(newDirName);
 
@@ -255,6 +310,13 @@ public partial class FileRenamerService
             yield break;
         }
 
+        // If the episode is directly in a library root, skip directory renames
+        if (IsLibraryRoot(seasonDir))
+        {
+            PluginLog.Info($"Skipped directory rename (library root): {seasonDir}");
+            yield break;
+        }
+
         var seasonDirName = Path.GetFileName(seasonDir);
         var seriesDir = Path.GetDirectoryName(seasonDir);
         if (string.IsNullOrEmpty(seriesDir) || string.IsNullOrEmpty(seasonDirName))
@@ -262,8 +324,8 @@ public partial class FileRenamerService
             yield break;
         }
 
-        // Rename season directory to "Season XX"
-        if (episode.ParentIndexNumber.HasValue)
+        // Rename season directory to "Season XX" (unless it's a library root)
+        if (episode.ParentIndexNumber.HasValue && !IsLibraryRoot(seasonDir))
         {
             var newSeasonDirName = $"Season {episode.ParentIndexNumber.Value:D2}";
             if (seasonDirName != newSeasonDirName)
@@ -273,7 +335,13 @@ public partial class FileRenamerService
             }
         }
 
-        // Series directory (grandparent of episode file)
+        // Series directory (grandparent of episode file) — skip if library root
+        if (IsLibraryRoot(seriesDir))
+        {
+            PluginLog.Info($"Skipped directory rename (library root): {seriesDir}");
+            yield break;
+        }
+
         var seriesDirName = Path.GetFileName(seriesDir);
         var seriesParentDir = Path.GetDirectoryName(seriesDir);
         if (string.IsNullOrEmpty(seriesParentDir) || string.IsNullOrEmpty(seriesDirName))
@@ -284,9 +352,18 @@ public partial class FileRenamerService
         if (!string.IsNullOrEmpty(episode.SeriesName))
         {
             var seriesYear = episode.Series?.PremiereDate?.Year;
+            var seriesName = episode.SeriesName;
+
+            // Strip existing year suffix to avoid "Title (2002) (2002)"
+            var yearSuffix = YearSuffixRegex().Match(seriesName);
+            if (yearSuffix.Success)
+            {
+                seriesName = seriesName[..yearSuffix.Index].TrimEnd();
+            }
+
             var newSeriesDirName = seriesYear.HasValue
-                ? $"{episode.SeriesName} ({seriesYear})"
-                : episode.SeriesName;
+                ? $"{seriesName} ({seriesYear})"
+                : seriesName;
 
             newSeriesDirName = SanitizeDirectoryName(newSeriesDirName);
 
@@ -470,17 +547,20 @@ public partial class FileRenamerService
                 if (File.Exists(op.OriginalPath) && !File.Exists(op.NewPath))
                 {
                     _logger.LogInformation("Renaming file: {Original} -> {New}", op.OriginalPath, op.NewPath);
+                    PluginLog.Info($"Renaming: {Path.GetFileName(op.OriginalPath)} -> {Path.GetFileName(op.NewPath)}");
                     File.Move(op.OriginalPath, op.NewPath);
                     count++;
                 }
                 else if (File.Exists(op.NewPath))
                 {
                     _logger.LogWarning("Target file already exists, skipping: {NewPath}", op.NewPath);
+                    PluginLog.Warn($"Target already exists, skipped: {Path.GetFileName(op.NewPath)}");
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to rename file {Original}", op.OriginalPath);
+                PluginLog.Error($"Failed to rename: {Path.GetFileName(op.OriginalPath)} - {ex.Message}");
             }
         }
 
@@ -505,6 +585,7 @@ public partial class FileRenamerService
                 if (Directory.Exists(currentOriginal) && !Directory.Exists(currentNew))
                 {
                     _logger.LogInformation("Renaming directory: {Original} -> {New}", currentOriginal, currentNew);
+                    PluginLog.Info($"Renaming dir: {Path.GetFileName(currentOriginal)} -> {Path.GetFileName(currentNew)}");
                     Directory.Move(currentOriginal, currentNew);
                     pathMappings.Add((currentOriginal, currentNew));
                     count++;
@@ -512,6 +593,7 @@ public partial class FileRenamerService
                 else if (Directory.Exists(currentNew))
                 {
                     _logger.LogWarning("Target directory already exists, skipping: {NewPath}", currentNew);
+                    PluginLog.Warn($"Target dir already exists, skipped: {Path.GetFileName(currentNew)}");
                 }
                 else if (!Directory.Exists(currentOriginal))
                 {
@@ -521,6 +603,7 @@ public partial class FileRenamerService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to rename directory {Original}", op.OriginalPath);
+                PluginLog.Error($"Failed to rename dir: {Path.GetFileName(op.OriginalPath)} - {ex.Message}");
             }
         }
 
@@ -602,4 +685,7 @@ public partial class FileRenamerService
 
     [GeneratedRegex(@"[<>:""/\\|?*]")]
     private static partial Regex InvalidCharsRegex();
+
+    [GeneratedRegex(@"\s*\(\d{4}\)\s*$")]
+    private static partial Regex YearSuffixRegex();
 }

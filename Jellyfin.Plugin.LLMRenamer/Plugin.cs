@@ -24,6 +24,26 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         Instance = this;
     }
 
+    /// <summary>
+    /// Gets the log directory path for the Jellyfin server.
+    /// </summary>
+    public string LogDirectoryPath => ApplicationPaths.LogDirectoryPath;
+
+    /// <summary>
+    /// Gets a safe data directory under Jellyfin's data path (not plugins/).
+    /// The default DataFolderPath lives under plugins/ and Jellyfin's PluginManager
+    /// tries to delete it on every restart, thinking it's an orphaned plugin directory.
+    /// </summary>
+    public string SafeDataPath
+    {
+        get
+        {
+            var path = Path.Combine(ApplicationPaths.DataPath, "llm-renamer");
+            Directory.CreateDirectory(path);
+            return path;
+        }
+    }
+
     /// <inheritdoc />
     public override string Name => "LLM File Renamer";
 

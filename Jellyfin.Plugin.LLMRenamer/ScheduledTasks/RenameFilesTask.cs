@@ -55,22 +55,33 @@ public class RenameFilesTask : IScheduledTask
         if (config == null)
         {
             _logger.LogError("Plugin configuration is null");
+            PluginLog.Error("Plugin configuration is null");
             return;
         }
 
         if (string.IsNullOrEmpty(config.ModelPath))
         {
             _logger.LogError("Model path is not configured");
+            PluginLog.Error("Scheduled task aborted: model path is not configured");
             return;
         }
 
+        PluginLog.Info("=== Scheduled rename task started ===");
         progress.Report(0);
 
         // Load the model if not already loaded
         if (!_llmService.IsModelLoaded)
         {
             _logger.LogInformation("Loading LLM model from {ModelPath}", config.ModelPath);
-            await _llmService.LoadModelAsync(config.ModelPath, cancellationToken);
+            try
+            {
+                await _llmService.LoadModelAsync(config.ModelPath, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                PluginLog.Error($"Failed to load model: {ex.Message}");
+                throw;
+            }
         }
 
         progress.Report(10);
@@ -82,14 +93,17 @@ public class RenameFilesTask : IScheduledTask
         if (totalItems == 0)
         {
             _logger.LogInformation("No items found to rename");
+            PluginLog.Info("No items found to rename");
             progress.Report(100);
             return;
         }
 
         _logger.LogInformation("Found {Count} items to process", totalItems);
+        PluginLog.Info($"Found {totalItems} items to process (movies={config.RenameMovies}, episodes={config.RenameEpisodes}, music={config.RenameMusic})");
 
         // Generate rename suggestions one item at a time for progress tracking
         var suggestions = new List<FileRenamerService.RenameOperation>();
+        var skippedCount = 0;
         for (var i = 0; i < totalItems; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -106,29 +120,42 @@ public class RenameFilesTask : IScheduledTask
             {
                 foreach (var s in itemSuggestions)
                 {
+                    var msg = $"Suggestion ({i + 1}/{totalItems}): {Path.GetFileName(s.OriginalPath)} -> {Path.GetFileName(s.NewPath)}";
                     _logger.LogInformation(
                         "Suggestion ({Index}/{Total}): {Original} -> {New} ({Reason})",
                         i + 1, totalItems,
                         Path.GetFileName(s.OriginalPath),
                         Path.GetFileName(s.NewPath),
                         s.Reason);
+                    PluginLog.Info(msg);
                 }
+            }
+            else
+            {
+                skippedCount++;
             }
         }
 
         _logger.LogInformation("Generated {Count} rename suggestions from {Total} items", suggestions.Count, totalItems);
+        PluginLog.Info($"Generation complete: {suggestions.Count} suggestions, {skippedCount} skipped (already correct)");
 
         // Execute renames if not in preview mode
         if (!config.PreviewOnly && suggestions.Count > 0)
         {
             var renamed = await _renamerService.ExecuteRenamesAsync(suggestions, cancellationToken);
             _logger.LogInformation("Successfully renamed {Count} files", renamed);
+            PluginLog.Info($"Renamed {renamed} files/directories");
         }
         else if (config.PreviewOnly)
         {
             _logger.LogInformation("Preview mode enabled - no files were renamed");
+            PluginLog.Info("Preview mode - no files were renamed");
         }
 
+        // Unload model to free memory after batch processing
+        _llmService.UnloadModel();
+
+        PluginLog.Info("=== Scheduled rename task completed ===");
         progress.Report(100);
     }
 

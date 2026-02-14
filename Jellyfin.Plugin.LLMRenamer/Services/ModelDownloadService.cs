@@ -62,8 +62,8 @@ public class ModelDownloadService : IDisposable
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Jellyfin-LLM-Renamer/1.0");
         _httpClient.Timeout = TimeSpan.FromHours(2); // Allow long downloads
 
-        var pluginDataPath = Plugin.Instance?.DataFolderPath
-            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "jellyfin", "plugins", "LLMRenamer");
+        var pluginDataPath = Plugin.Instance?.SafeDataPath
+            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "jellyfin", "data", "llm-renamer");
         _modelsDirectory = Path.Combine(pluginDataPath, "models");
         // Native libs go under runtimes/{rid}/native/ so LLamaSharp's WithSearchDirectory can find them
         _nativeDirectory = Path.Combine(pluginDataPath, "runtimes");
@@ -164,13 +164,31 @@ public class ModelDownloadService : IDisposable
     /// <summary>
     /// Starts downloading native libraries for the current platform.
     /// </summary>
-    public bool StartNativeLibraryDownload()
+    public bool StartNativeLibraryDownload(bool useCuda = false)
     {
         var platform = GetCurrentPlatform();
-        var url = GetNativeLibraryDownloadUrl();
-        var filename = $"LLamaSharp.Backend.Cpu.{NuGetBackendVersion}.nupkg";
 
-        return StartDownloadInternal("native-libs", $"Native Libraries ({platform})", filename, url, 0, isNativeLib: true);
+        // CPU backend is a single package with all platforms.
+        // CUDA12 is a metapackage - actual DLLs are in platform-specific sub-packages:
+        //   LLamaSharp.Backend.Cuda12.Windows, LLamaSharp.Backend.Cuda12.Linux
+        string packageName;
+        string backendLabel;
+        if (useCuda)
+        {
+            var platformSuffix = platform.StartsWith("win", StringComparison.OrdinalIgnoreCase) ? "Windows" : "Linux";
+            packageName = $"LLamaSharp.Backend.Cuda12.{platformSuffix}";
+            backendLabel = $"Cuda12 ({platformSuffix})";
+        }
+        else
+        {
+            packageName = "LLamaSharp.Backend.Cpu";
+            backendLabel = "Cpu";
+        }
+
+        var url = $"https://www.nuget.org/api/v2/package/{packageName}/{NuGetBackendVersion}";
+        var filename = $"{packageName}.{NuGetBackendVersion}.nupkg";
+
+        return StartDownloadInternal("native-libs", $"Native Libraries ({platform} - {backendLabel})", filename, url, 0, isNativeLib: true);
     }
 
     private static string GetCurrentPlatform()

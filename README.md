@@ -4,8 +4,10 @@ A Jellyfin plugin that uses local AI models (via LLamaSharp) to automatically re
 
 ## Features
 
+- **GPU Acceleration** - NVIDIA CUDA 12 support for 10-15x faster inference
 - **Built-in Model Downloader** - Download models directly from the admin UI
 - **Directory Renaming** - Optionally rename parent directories to match Jellyfin conventions
+- **Plugin Logging** - Dedicated log file (`llm-renamer.log`) for easy debugging
 - Renames movies to `Movie Title (Year).ext` format
 - Renames TV episodes to `Series Name S##E## - Episode Title.ext` format
 - Renames music to `## - Track Title.ext` format
@@ -21,6 +23,7 @@ A Jellyfin plugin that uses local AI models (via LLamaSharp) to automatically re
 
 - Jellyfin 10.11.0 or later
 - Sufficient RAM for model loading (3B model needs ~4GB)
+- **For GPU acceleration (optional):** NVIDIA GPU + [CUDA 12 Toolkit](https://developer.nvidia.com/cuda-12-6-0-download-archive)
 
 ## Installation
 
@@ -63,6 +66,30 @@ The plugin files will be in `publish/`. Copy all DLLs and `plugin.json` to your 
 2. Click **Download Native Libraries** (required once per platform)
 3. Download the recommended model (Qwen 2.5 3B)
 4. Configure your preferences
+
+## GPU Acceleration (Optional)
+
+The plugin supports NVIDIA GPU acceleration via CUDA 12 for significantly faster inference (~200ms vs ~2-3s per item).
+
+### Setup
+
+1. Install the [CUDA 12 Toolkit](https://developer.nvidia.com/cuda-12-6-0-download-archive) (v12.x required, CUDA 13 is not compatible)
+2. In the plugin config, click **Download Native Libraries** with the **CUDA** option selected
+3. Set **GPU Layers** to a value > 0 (e.g., 33 for full offload of a 3B model)
+4. Restart Jellyfin
+
+### How It Works
+
+- The plugin automatically detects CUDA 12 toolkit installations on Windows (via `CUDA_PATH` or standard install paths)
+- Pre-loads CUDA runtime libraries (`cublas64_12.dll`, `cudart64_12.dll`) before loading the LLM backend
+- Falls back to CPU automatically if CUDA loading fails
+- Both CPU and CUDA native libraries can coexist - the plugin picks the right one based on your GPU Layers setting
+
+### Notes
+
+- CUDA 12.x is required - CUDA 13 libraries are not compatible with the current LLamaSharp backend
+- If you have multiple CUDA versions installed, the plugin searches for v12.x specifically
+- On Linux, ensure CUDA 12 libraries are in your library path
 
 ## Getting a Model
 
@@ -218,6 +245,15 @@ The plugin adds a scheduled task "LLM File Renamer" under Library tasks. You can
 - Run it manually from Dashboard > Scheduled Tasks
 - Configure triggers for automatic execution
 
+## Logging
+
+The plugin writes to a dedicated log file `llm-renamer.log` in Jellyfin's log directory for easy debugging:
+- Windows: `C:\ProgramData\Jellyfin\Server\log\llm-renamer.log`
+- Linux: `/var/log/jellyfin/llm-renamer.log`
+- Docker: `/config/log/llm-renamer.log`
+
+This log captures model loading, CUDA detection, rename operations, and errors without cluttering the main Jellyfin log.
+
 ## Troubleshooting
 
 ### Native libraries not found
@@ -241,10 +277,18 @@ The plugin adds a scheduled task "LLM File Renamer" under Library tasks. You can
 - Add custom prompt instructions in configuration
 - Ensure metadata is properly scraped for your media
 
+### GPU not being used
+- Ensure CUDA 12 toolkit is installed (not CUDA 13)
+- Download native libraries with the CUDA option enabled
+- Set GPU Layers > 0 in plugin configuration
+- Check `llm-renamer.log` for CUDA detection messages
+- Restart Jellyfin after installing CUDA toolkit (env vars need a fresh process)
+
 ### High memory usage
+- The model stays loaded in memory between renames - unload it via the API (`POST /LLMRenamer/UnloadModel`) when not in use
 - Use a smaller quantized model (Q4_K_M)
 - Reduce context size to 1024
-- Unload model when not in use via API or restart Jellyfin
+- With GPU acceleration, VRAM is used instead of system RAM for offloaded layers
 
 ## Contributing
 

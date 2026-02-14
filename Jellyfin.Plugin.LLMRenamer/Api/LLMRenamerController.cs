@@ -349,22 +349,24 @@ public class LLMRenamerController : ControllerBase
     /// <summary>
     /// Starts downloading native libraries for the current platform.
     /// </summary>
+    /// <param name="cuda">Set to true to download CUDA (GPU) libraries instead of CPU.</param>
     /// <returns>Result indicating download started.</returns>
     [HttpPost("Native/Download")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public ActionResult StartNativeLibraryDownload()
+    public ActionResult StartNativeLibraryDownload([FromQuery] bool cuda = false)
     {
         if (_modelDownloadService.IsDownloading)
         {
             return Conflict(new { Message = "A download is already in progress" });
         }
 
-        var started = _modelDownloadService.StartNativeLibraryDownload();
+        var started = _modelDownloadService.StartNativeLibraryDownload(useCuda: cuda);
 
         if (started)
         {
-            return Ok(new { Message = "Native library download started" });
+            var backend = cuda ? "CUDA (GPU)" : "CPU";
+            return Ok(new { Message = $"Native library download started ({backend})" });
         }
 
         return BadRequest(new { Message = "Failed to start download" });
