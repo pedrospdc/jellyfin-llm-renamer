@@ -1,56 +1,65 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#00a4dc;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#aa5cc3;stop-opacity:1" />
+    <linearGradient id="passportGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00a4dc"/>
+      <stop offset="100%" style="stop-color:#1a5276"/>
     </linearGradient>
-    <linearGradient id="docGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#e8e8e8;stop-opacity:1" />
+    <linearGradient id="pageGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff"/>
+      <stop offset="100%" style="stop-color:#f0f0f0"/>
     </linearGradient>
   </defs>
 
-  <!-- Background circle -->
-  <circle cx="256" cy="256" r="240" fill="url(#bgGrad)"/>
+  <!-- Passport cover -->
+  <rect x="80" y="40" width="352" height="432" rx="20" fill="url(#passportGrad)"/>
 
-  <!-- Document/file shape -->
-  <path d="M160 100 L320 100 L370 150 L370 412 L160 412 Z" fill="url(#docGrad)" stroke="#ffffff" stroke-width="4"/>
+  <!-- Passport spine/binding -->
+  <rect x="80" y="40" width="30" height="432" rx="10" fill="#0d3d56"/>
 
-  <!-- Folded corner -->
-  <path d="M320 100 L320 150 L370 150 Z" fill="#c8c8c8" stroke="#ffffff" stroke-width="2"/>
+  <!-- Inner pages (visible on right edge) -->
+  <rect x="115" y="55" width="302" height="402" rx="8" fill="url(#pageGrad)"/>
 
-  <!-- Text lines on document -->
-  <rect x="190" y="180" width="150" height="16" rx="4" fill="#00a4dc" opacity="0.7"/>
-  <rect x="190" y="210" width="120" height="16" rx="4" fill="#00a4dc" opacity="0.5"/>
-  <rect x="190" y="240" width="140" height="16" rx="4" fill="#00a4dc" opacity="0.6"/>
+  <!-- Passport cover emblem area -->
+  <circle cx="280" cy="180" r="80" fill="none" stroke="#ffffff" stroke-width="4" opacity="0.3"/>
+  <circle cx="280" cy="180" r="60" fill="none" stroke="#ffffff" stroke-width="3" opacity="0.4"/>
 
-  <!-- AI brain/neural network symbol -->
-  <g transform="translate(265, 330)">
+  <!-- AI brain symbol in center -->
+  <g transform="translate(280, 180)">
     <!-- Central node -->
-    <circle cx="0" cy="0" r="25" fill="#aa5cc3"/>
-    <circle cx="0" cy="0" r="15" fill="#ffffff"/>
+    <circle cx="0" cy="0" r="20" fill="#ffffff"/>
 
     <!-- Outer nodes -->
-    <circle cx="-50" cy="-30" r="15" fill="#00a4dc"/>
-    <circle cx="50" cy="-30" r="15" fill="#00a4dc"/>
-    <circle cx="-50" cy="30" r="15" fill="#00a4dc"/>
-    <circle cx="50" cy="30" r="15" fill="#00a4dc"/>
+    <circle cx="-35" cy="-20" r="10" fill="#ffffff" opacity="0.9"/>
+    <circle cx="35" cy="-20" r="10" fill="#ffffff" opacity="0.9"/>
+    <circle cx="-35" cy="20" r="10" fill="#ffffff" opacity="0.9"/>
+    <circle cx="35" cy="20" r="10" fill="#ffffff" opacity="0.9"/>
+    <circle cx="0" cy="-40" r="10" fill="#ffffff" opacity="0.9"/>
+    <circle cx="0" cy="40" r="10" fill="#ffffff" opacity="0.9"/>
 
     <!-- Connection lines -->
-    <line x1="0" y1="0" x2="-50" y2="-30" stroke="#ffffff" stroke-width="4" opacity="0.8"/>
-    <line x1="0" y1="0" x2="50" y2="-30" stroke="#ffffff" stroke-width="4" opacity="0.8"/>
-    <line x1="0" y1="0" x2="-50" y2="30" stroke="#ffffff" stroke-width="4" opacity="0.8"/>
-    <line x1="0" y1="0" x2="50" y2="30" stroke="#ffffff" stroke-width="4" opacity="0.8"/>
-
-    <!-- Inner dots on outer nodes -->
-    <circle cx="-50" cy="-30" r="6" fill="#ffffff"/>
-    <circle cx="50" cy="-30" r="6" fill="#ffffff"/>
-    <circle cx="-50" cy="30" r="6" fill="#ffffff"/>
-    <circle cx="50" cy="30" r="6" fill="#ffffff"/>
+    <line x1="0" y1="0" x2="-35" y2="-20" stroke="#ffffff" stroke-width="3" opacity="0.7"/>
+    <line x1="0" y1="0" x2="35" y2="-20" stroke="#ffffff" stroke-width="3" opacity="0.7"/>
+    <line x1="0" y1="0" x2="-35" y2="20" stroke="#ffffff" stroke-width="3" opacity="0.7"/>
+    <line x1="0" y1="0" x2="35" y2="20" stroke="#ffffff" stroke-width="3" opacity="0.7"/>
+    <line x1="0" y1="0" x2="0" y2="-40" stroke="#ffffff" stroke-width="3" opacity="0.7"/>
+    <line x1="0" y1="0" x2="0" y2="40" stroke="#ffffff" stroke-width="3" opacity="0.7"/>
   </g>
 
-  <!-- Rename arrow -->
-  <g transform="translate(130, 300)">
-    <path d="M0 20 L30 20 L30 10 L50 25 L30 40 L30 30 L0 30 Z" fill="#ffffff" opacity="0.9"/>
+  <!-- Text placeholder lines (like passport text) -->
+  <rect x="180" y="290" width="200" height="12" rx="6" fill="#ffffff" opacity="0.5"/>
+  <rect x="200" y="315" width="160" height="10" rx="5" fill="#ffffff" opacity="0.4"/>
+  <rect x="220" y="338" width="120" height="10" rx="5" fill="#ffffff" opacity="0.3"/>
+
+  <!-- File rename arrow indicator -->
+  <g transform="translate(280, 400)">
+    <rect x="-60" y="-12" width="50" height="24" rx="4" fill="#aa5cc3"/>
+    <polygon points="0,-18 30,0 0,18" fill="#aa5cc3"/>
+    <rect x="35" y="-12" width="50" height="24" rx="4" fill="#2ecc71"/>
+
+    <!-- "A" on left (old name) -->
+    <text x="-35" y="6" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="middle">OLD</text>
+
+    <!-- Checkmark on right (new name) -->
+    <text x="60" y="6" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="middle">NEW</text>
   </g>
 </svg>
