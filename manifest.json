@@ -9,20 +9,12 @@
     "imageUrl": "https://raw.githubusercontent.com/pedrospdc/jellyfin-llm-renamer/main/assets/icon.png",
     "versions": [
       {
-        "version": "0.0.4.0",
-        "changelog": "Added native library download support, sidebar menu integration, and improved plugin configuration.",
+        "version": "0.0.5.0",
+        "changelog": "Fixed sidebar menu integration and manifest versioning.",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/pedrospdc/jellyfin-llm-renamer/releases/download/v0.0.5/jellyfin-llm-renamer-v0.0.5.zip",
         "checksum": "a1433bdb501559ebca1ab8bca0c1fa19",
         "timestamp": "2026-02-14T03:47:27Z"
-      },
-      {
-        "version": "1.0.0.0",
-        "changelog": "Initial release with support for Movies, TV Shows, and Music. Includes built-in model downloader with progress tracking.",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/pedrospdc/jellyfin-llm-renamer/releases/download/v0.0.4/jellyfin-llm-renamer-v0.0.4.zip",
-        "checksum": "b494991128a4a7fe8c397e7b3778c49c",
-        "timestamp": "2026-02-14T03:41:12Z"
       }
     ]
   }
