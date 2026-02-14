@@ -9,12 +9,12 @@
     "imageUrl": "https://raw.githubusercontent.com/pedrospdc/jellyfin-llm-renamer/main/assets/icon.png",
     "versions": [
       {
-        "version": "0.0.14.0",
+        "version": "0.0.15.0",
         "changelog": "Plugin updates and improvements.",
         "targetAbi": "10.11.5.0",
-        "sourceUrl": "https://github.com/pedrospdc/jellyfin-llm-renamer/releases/download/v0.0.14/jellyfin-llm-renamer-v0.0.14.zip",
-        "checksum": "94bad8a115c1089476ec6695f169feeb",
-        "timestamp": "2026-02-14T04:40:36Z"
+        "sourceUrl": "https://github.com/pedrospdc/jellyfin-llm-renamer/releases/download/v0.0.15/jellyfin-llm-renamer-v0.0.15.zip",
+        "checksum": "1cafa0a13c538daa3f05826ed022a7b5",
+        "timestamp": "2026-02-14T04:44:01Z"
       }
     ]
   }
