@@ -49,7 +49,7 @@ public class ModelDownloadService : IDisposable
     /// <summary>
     /// llama.cpp release version to download.
     /// </summary>
-    private const string LlamaCppVersion = "b4679";
+    private const string LlamaCppVersion = "b4815";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ModelDownloadService"/> class.
@@ -164,7 +164,7 @@ public class ModelDownloadService : IDisposable
     {
         var platform = GetCurrentPlatform();
         var url = GetNativeLibraryDownloadUrl(platform);
-        var filename = $"llama-{LlamaCppVersion}-{GetPlatformArchiveName(platform)}";
+        var filename = GetPlatformArchiveName(platform, LlamaCppVersion);
 
         if (string.IsNullOrEmpty(url))
         {
@@ -199,21 +199,21 @@ public class ModelDownloadService : IDisposable
         };
     }
 
-    private static string GetPlatformArchiveName(string platform)
+    private static string GetPlatformArchiveName(string platform, string version)
     {
         return platform switch
         {
-            "win-x64" => "bin-win-avx2-x64.zip",
-            "linux-x64" => "bin-ubuntu-x64.zip",
-            "osx-x64" => "bin-macos-x64.zip",
-            "osx-arm64" => "bin-macos-arm64.zip",
-            _ => "bin-ubuntu-x64.zip"
+            "win-x64" => $"llama-{version}-bin-win-cpu-x64.zip",
+            "linux-x64" => $"llama-{version}-bin-ubuntu-x64.zip",
+            "osx-x64" => $"llama-{version}-bin-macos-x64.zip",
+            "osx-arm64" => $"llama-{version}-bin-macos-arm64.zip",
+            _ => $"llama-{version}-bin-ubuntu-x64.zip"
         };
     }
 
     private string GetNativeLibraryDownloadUrl(string platform)
     {
-        var archiveName = GetPlatformArchiveName(platform);
+        var archiveName = GetPlatformArchiveName(platform, LlamaCppVersion);
         return $"https://github.com/ggerganov/llama.cpp/releases/download/{LlamaCppVersion}/{archiveName}";
     }
 
