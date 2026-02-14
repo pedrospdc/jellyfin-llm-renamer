@@ -27,10 +27,12 @@
     <PackageReference Include="LLamaSharp" Version="0.25.0" />
     <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.25.0" />
 
-    <!-- Exclude transitive dependencies that Jellyfin already provides at runtime -->
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="*" ExcludeAssets="runtime" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="*" ExcludeAssets="runtime" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="*" ExcludeAssets="runtime" PrivateAssets="all" />
+    <!-- Pin transitive deps to .NET 9 versions matching Jellyfin's runtime.
+         Without pinning, NuGet resolves to .NET 10 preview (10.0.3) which conflicts. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.11" ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.11" ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="9.0.11" ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="9.0.11" ExcludeAssets="runtime" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>

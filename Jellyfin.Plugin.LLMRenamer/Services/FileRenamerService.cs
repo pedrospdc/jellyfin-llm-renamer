@@ -111,6 +111,13 @@ public partial class FileRenamerService
         var extension = Path.GetExtension(movie.Path);
         var directory = Path.GetDirectoryName(movie.Path) ?? string.Empty;
 
+        // Skip if already matches convention: "Title (Year).ext"
+        if (IsMovieFileNameCorrect(originalFileName, movie))
+        {
+            _logger.LogDebug("Movie file already matches convention, skipping: {FileName}", originalFileName);
+            return null;
+        }
+
         var prompt = BuildMoviePrompt(originalFileName, movie);
 
         _logger.LogDebug("Generating rename for movie: {OriginalName}", originalFileName);
@@ -137,6 +144,13 @@ public partial class FileRenamerService
         var originalFileName = Path.GetFileName(episode.Path);
         var extension = Path.GetExtension(episode.Path);
         var directory = Path.GetDirectoryName(episode.Path) ?? string.Empty;
+
+        // Skip if already matches convention: "Series S##E## - Episode Title.ext"
+        if (IsEpisodeFileNameCorrect(originalFileName, episode))
+        {
+            _logger.LogDebug("Episode file already matches convention, skipping: {FileName}", originalFileName);
+            return null;
+        }
 
         var prompt = BuildEpisodePrompt(originalFileName, episode);
 
@@ -167,6 +181,13 @@ public partial class FileRenamerService
         var originalFileName = Path.GetFileName(audio.Path);
         var extension = Path.GetExtension(audio.Path);
         var directory = Path.GetDirectoryName(audio.Path) ?? string.Empty;
+
+        // Skip if already matches convention: "## - Track Title.ext"
+        if (IsMusicFileNameCorrect(originalFileName, audio))
+        {
+            _logger.LogDebug("Music file already matches convention, skipping: {FileName}", originalFileName);
+            return null;
+        }
 
         var prompt = BuildMusicPrompt(originalFileName, audio);
 
@@ -281,6 +302,40 @@ public partial class FileRenamerService
     {
         // Remove characters invalid in directory names
         return InvalidCharsRegex().Replace(name, "_").Trim();
+    }
+
+    private static bool IsMovieFileNameCorrect(string fileName, Movie movie)
+    {
+        if (string.IsNullOrEmpty(movie.Name)) return false;
+        var ext = Path.GetExtension(fileName);
+        var expected = movie.ProductionYear.HasValue
+            ? $"{movie.Name} ({movie.ProductionYear}){ext}"
+            : $"{movie.Name}{ext}";
+        return string.Equals(fileName, expected, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsEpisodeFileNameCorrect(string fileName, Episode episode)
+    {
+        if (string.IsNullOrEmpty(episode.SeriesName)) return false;
+        var ext = Path.GetExtension(fileName);
+        var season = episode.ParentIndexNumber?.ToString("D2") ?? "00";
+        var ep = episode.IndexNumber?.ToString("D2") ?? "00";
+        // Match both "Series S##E## - Title.ext" and "Series S##E##.ext"
+        var withTitle = !string.IsNullOrEmpty(episode.Name)
+            ? $"{episode.SeriesName} S{season}E{ep} - {episode.Name}{ext}"
+            : null;
+        var withoutTitle = $"{episode.SeriesName} S{season}E{ep}{ext}";
+        return string.Equals(fileName, withoutTitle, StringComparison.OrdinalIgnoreCase)
+            || (withTitle != null && string.Equals(fileName, withTitle, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsMusicFileNameCorrect(string fileName, Audio audio)
+    {
+        if (string.IsNullOrEmpty(audio.Name)) return false;
+        var ext = Path.GetExtension(fileName);
+        var track = audio.IndexNumber?.ToString("D2") ?? "00";
+        var expected = $"{track} - {audio.Name}{ext}";
+        return string.Equals(fileName, expected, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string BuildMoviePrompt(string originalFileName, Movie movie)
@@ -401,6 +456,9 @@ public partial class FileRenamerService
         var count = 0;
         var allOps = operations.ToList();
 
+        // Write rename history before executing
+        WriteRenameHistory(allOps);
+
         // Process file renames first
         var fileOps = allOps.Where(o => !o.IsDirectory).ToList();
         foreach (var op in fileOps)
@@ -473,6 +531,51 @@ public partial class FileRenamerService
         }
 
         return Task.FromResult(count);
+    }
+
+    private void WriteRenameHistory(List<RenameOperation> operations)
+    {
+        // Group by directory and write a .rename-history.txt in each affected directory
+        var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        var byDirectory = new Dictionary<string, List<string>>();
+
+        foreach (var op in operations)
+        {
+            var dir = op.IsDirectory
+                ? Path.GetDirectoryName(op.OriginalPath) ?? string.Empty
+                : Path.GetDirectoryName(op.OriginalPath) ?? string.Empty;
+
+            if (string.IsNullOrEmpty(dir)) continue;
+
+            var originalName = Path.GetFileName(op.OriginalPath);
+            var newName = Path.GetFileName(op.NewPath);
+
+            if (!byDirectory.ContainsKey(dir))
+            {
+                byDirectory[dir] = new List<string>();
+            }
+
+            var typeLabel = op.IsDirectory ? "[DIR] " : "";
+            byDirectory[dir].Add($"{typeLabel}{originalName} -> {newName}");
+        }
+
+        foreach (var (dir, entries) in byDirectory)
+        {
+            try
+            {
+                var historyFile = Path.Combine(dir, ".rename-history.txt");
+                var lines = new List<string> { $"[{timestamp}]" };
+                lines.AddRange(entries);
+                lines.Add(string.Empty); // blank line between sessions
+
+                File.AppendAllLines(historyFile, lines);
+                _logger.LogDebug("Wrote rename history to {HistoryFile}", historyFile);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to write rename history to {Dir}", dir);
+            }
+        }
     }
 
     private static string ApplyPathMappings(string path, List<(string OldPrefix, string NewPrefix)> mappings)

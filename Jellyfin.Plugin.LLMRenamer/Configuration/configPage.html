@@ -765,7 +765,7 @@
                     data: JSON.stringify({ Filename: filename }),
                     contentType: 'application/json'
                 }).then(function(result) {
-                    var data = JSON.parse(result);
+                    var data = typeof result === 'string' ? JSON.parse(result) : result;
                     document.getElementById('testResult').style.display = 'block';
                     document.getElementById('testOriginal').textContent = data.OriginalFilename;
                     document.getElementById('testSuggested').textContent = data.SuggestedFilename;
