@@ -21,11 +21,11 @@
 
   <ItemGroup>
     <!-- Jellyfin packages - exclude from output, provided by Jellyfin at runtime -->
-    <PackageReference Include="Jellyfin.Controller" Version="10.11.0">
+    <PackageReference Include="Jellyfin.Controller" Version="10.11.6">
       <PrivateAssets>all</PrivateAssets>
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>
-    <PackageReference Include="Jellyfin.Model" Version="10.11.0">
+    <PackageReference Include="Jellyfin.Model" Version="10.11.6">
       <PrivateAssets>all</PrivateAssets>
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>
