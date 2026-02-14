@@ -51,8 +51,8 @@ jobs:
           rm -rf runtimes
           # Exclude Jellyfin-provided DLLs - they cause version conflicts
           rm -f MediaBrowser.*.dll Jellyfin.Data.dll Jellyfin.Extensions.dll Jellyfin.Database.*.dll Emby.*.dll
-          # Exclude Microsoft.Extensions.* DLLs that conflict with Jellyfin's versions
-          rm -f Microsoft.Extensions.DependencyInjection.Abstractions.dll Microsoft.Extensions.Logging.Abstractions.dll Microsoft.Bcl.AsyncInterfaces.dll
+          # Exclude DLLs that conflict with Jellyfin's runtime versions
+          rm -f Microsoft.Extensions.DependencyInjection.Abstractions.dll Microsoft.Extensions.Logging.Abstractions.dll Microsoft.Bcl.AsyncInterfaces.dll System.Diagnostics.DiagnosticSource.dll
           # Keep only essential files
           ls -la
           zip -r ../../jellyfin-llm-renamer-${{ steps.version.outputs.VERSION }}.zip .
