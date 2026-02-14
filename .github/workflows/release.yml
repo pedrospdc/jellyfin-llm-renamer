@@ -22,14 +22,6 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
-      - name: Restore dependencies
-        run: dotnet restore
-        working-directory: Jellyfin.Plugin.LLMRenamer
-
-      - name: Publish
-        run: dotnet publish -c Release --no-restore -o publish
-        working-directory: Jellyfin.Plugin.LLMRenamer
-
       - name: Get version from tag
         id: version
         run: |
@@ -43,6 +35,14 @@ jobs:
         run: |
           jq --arg version "${{ steps.version.outputs.ASSEMBLY_VERSION }}" \
              '.version = $version' Jellyfin.Plugin.LLMRenamer/plugin.json > plugin.tmp && mv plugin.tmp Jellyfin.Plugin.LLMRenamer/plugin.json
+
+      - name: Restore dependencies
+        run: dotnet restore
+        working-directory: Jellyfin.Plugin.LLMRenamer
+
+      - name: Publish
+        run: dotnet publish -c Release --no-restore -o publish
+        working-directory: Jellyfin.Plugin.LLMRenamer
 
       - name: Create plugin zip
         run: |
