@@ -319,6 +319,45 @@ public class LLMRenamerController : ControllerBase
 
     #endregion
 
+    #region Native Libraries
+
+    /// <summary>
+    /// Gets the native library status.
+    /// </summary>
+    /// <returns>Native library status.</returns>
+    [HttpGet("Native/Status")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<NativeLibraryStatus> GetNativeLibraryStatus()
+    {
+        return Ok(_modelDownloadService.GetNativeLibraryStatus());
+    }
+
+    /// <summary>
+    /// Starts downloading native libraries for the current platform.
+    /// </summary>
+    /// <returns>Result indicating download started.</returns>
+    [HttpPost("Native/Download")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public ActionResult StartNativeLibraryDownload()
+    {
+        if (_modelDownloadService.IsDownloading)
+        {
+            return Conflict(new { Message = "A download is already in progress" });
+        }
+
+        var started = _modelDownloadService.StartNativeLibraryDownload();
+
+        if (started)
+        {
+            return Ok(new { Message = "Native library download started" });
+        }
+
+        return BadRequest(new { Message = "Failed to start download" });
+    }
+
+    #endregion
+
     #region Rename Operations
 
     /// <summary>

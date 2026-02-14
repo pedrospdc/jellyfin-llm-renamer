@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.LLMRenamer.Services;
@@ -43,6 +44,13 @@ public class ModelDownloadService : IDisposable
             800_000_000, "Fast and efficient, good for simple tasks"),
     };
 
+    private readonly string _nativeDirectory;
+
+    /// <summary>
+    /// llama.cpp release version to download.
+    /// </summary>
+    private const string LlamaCppVersion = "b4679";
+
     /// <summary>
     /// Initializes a new instance of the <see cref="ModelDownloadService"/> class.
     /// </summary>
@@ -56,14 +64,21 @@ public class ModelDownloadService : IDisposable
         var pluginDataPath = Plugin.Instance?.DataFolderPath
             ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "jellyfin", "plugins", "LLMRenamer");
         _modelsDirectory = Path.Combine(pluginDataPath, "models");
+        _nativeDirectory = Path.Combine(pluginDataPath, "native");
 
         Directory.CreateDirectory(_modelsDirectory);
+        Directory.CreateDirectory(_nativeDirectory);
     }
 
     /// <summary>
     /// Gets the models directory path.
     /// </summary>
     public string ModelsDirectory => _modelsDirectory;
+
+    /// <summary>
+    /// Gets the native libraries directory path.
+    /// </summary>
+    public string NativeDirectory => _nativeDirectory;
 
     /// <summary>
     /// Gets the current download progress.
@@ -124,6 +139,85 @@ public class ModelDownloadService : IDisposable
     }
 
     /// <summary>
+    /// Gets the native library status.
+    /// </summary>
+    public NativeLibraryStatus GetNativeLibraryStatus()
+    {
+        var platform = GetCurrentPlatform();
+        var expectedFile = GetNativeLibraryFilename(platform);
+        var fullPath = Path.Combine(_nativeDirectory, expectedFile);
+        var exists = File.Exists(fullPath);
+
+        return new NativeLibraryStatus(
+            Platform: platform,
+            IsInstalled: exists,
+            ExpectedFile: expectedFile,
+            NativeDirectory: _nativeDirectory,
+            DownloadUrl: GetNativeLibraryDownloadUrl(platform)
+        );
+    }
+
+    /// <summary>
+    /// Starts downloading native libraries for the current platform.
+    /// </summary>
+    public bool StartNativeLibraryDownload()
+    {
+        var platform = GetCurrentPlatform();
+        var url = GetNativeLibraryDownloadUrl(platform);
+        var filename = $"llama-{LlamaCppVersion}-{GetPlatformArchiveName(platform)}";
+
+        if (string.IsNullOrEmpty(url))
+        {
+            _logger.LogError("No native library download URL for platform: {Platform}", platform);
+            return false;
+        }
+
+        return StartDownloadInternal("native-libs", $"Native Libraries ({platform})", filename, url, 0, isNativeLib: true);
+    }
+
+    private static string GetCurrentPlatform()
+    {
+        if (OperatingSystem.IsWindows())
+            return "win-x64";
+        if (OperatingSystem.IsLinux())
+            return "linux-x64";
+        if (OperatingSystem.IsMacOS())
+            return Environment.Is64BitProcess && System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture == System.Runtime.InteropServices.Architecture.Arm64
+                ? "osx-arm64"
+                : "osx-x64";
+        return "unknown";
+    }
+
+    private static string GetNativeLibraryFilename(string platform)
+    {
+        return platform switch
+        {
+            "win-x64" => "llama.dll",
+            "linux-x64" => "libllama.so",
+            "osx-x64" or "osx-arm64" => "libllama.dylib",
+            _ => "libllama.so"
+        };
+    }
+
+    private static string GetPlatformArchiveName(string platform)
+    {
+        return platform switch
+        {
+            "win-x64" => "bin-win-avx2-x64.zip",
+            "linux-x64" => "bin-ubuntu-x64.zip",
+            "osx-x64" => "bin-macos-x64.zip",
+            "osx-arm64" => "bin-macos-arm64.zip",
+            _ => "bin-ubuntu-x64.zip"
+        };
+    }
+
+    private string GetNativeLibraryDownloadUrl(string platform)
+    {
+        var archiveName = GetPlatformArchiveName(platform);
+        return $"https://github.com/ggerganov/llama.cpp/releases/download/{LlamaCppVersion}/{archiveName}";
+    }
+
+    /// <summary>
     /// Starts downloading a model in the background. Returns immediately.
     /// </summary>
     public bool StartDownload(string modelId)
@@ -149,10 +243,10 @@ public class ModelDownloadService : IDisposable
             filename += ".gguf";
         }
 
-        return StartDownloadInternal("custom", filename, filename, url, 0);
+        return StartDownloadInternal("custom", filename, filename, url, 0, isNativeLib: false);
     }
 
-    private bool StartDownloadInternal(string modelId, string displayName, string filename, string url, long expectedSize)
+    private bool StartDownloadInternal(string modelId, string displayName, string filename, string url, long expectedSize, bool isNativeLib = false)
     {
         lock (_lock)
         {
@@ -171,11 +265,126 @@ public class ModelDownloadService : IDisposable
 
             _downloadTask = Task.Run(async () =>
             {
-                await DownloadFileAsync(modelId, displayName, filename, url, expectedSize, token);
+                if (isNativeLib)
+                {
+                    await DownloadNativeLibraryAsync(modelId, displayName, url, token);
+                }
+                else
+                {
+                    await DownloadFileAsync(modelId, displayName, filename, url, expectedSize, token);
+                }
             }, token);
 
             return true;
         }
+    }
+
+    private async Task DownloadNativeLibraryAsync(string modelId, string displayName, string url, CancellationToken cancellationToken)
+    {
+        var tempZipPath = Path.Combine(Path.GetTempPath(), $"llama-native-{Guid.NewGuid()}.zip");
+        var startTime = DateTime.UtcNow;
+
+        try
+        {
+            _logger.LogInformation("Downloading native libraries from {Url}", url);
+
+            UpdateProgress(modelId, displayName, 0, 0,
+                DownloadState.Downloading, "Downloading...", 0, null, null);
+
+            using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var totalBytes = response.Content.Headers.ContentLength ?? 0;
+
+            await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            await using var fileStream = new FileStream(tempZipPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
+
+            var buffer = new byte[81920];
+            long downloadedBytes = 0;
+            int bytesRead;
+            var lastUpdate = DateTime.UtcNow;
+
+            while ((bytesRead = await contentStream.ReadAsync(buffer, cancellationToken)) > 0)
+            {
+                await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
+                downloadedBytes += bytesRead;
+
+                var now = DateTime.UtcNow;
+                if ((now - lastUpdate).TotalMilliseconds >= 250)
+                {
+                    var elapsed = (now - startTime).TotalSeconds;
+                    var speed = elapsed > 0 ? downloadedBytes / elapsed : 0;
+                    var percentage = totalBytes > 0 ? (double)downloadedBytes / totalBytes * 100 : 0;
+
+                    var status = $"{FormatBytes(downloadedBytes)} / {FormatBytes(totalBytes)} ({FormatSpeed(speed)})";
+                    UpdateProgress(modelId, displayName, downloadedBytes, totalBytes,
+                        DownloadState.Downloading, status, percentage, null, null);
+
+                    lastUpdate = now;
+                }
+            }
+
+            await fileStream.FlushAsync(cancellationToken);
+            fileStream.Close();
+
+            // Extract the zip
+            UpdateProgress(modelId, displayName, downloadedBytes, totalBytes,
+                DownloadState.Downloading, "Extracting...", 95, null, null);
+
+            await ExtractNativeLibrariesAsync(tempZipPath, cancellationToken);
+
+            _logger.LogInformation("Native libraries installed to {Path}", _nativeDirectory);
+
+            UpdateProgress(modelId, displayName, downloadedBytes, totalBytes,
+                DownloadState.Completed, "Native libraries installed!", 100, null, _nativeDirectory);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("Native library download cancelled");
+            UpdateProgress(modelId, displayName, 0, 0,
+                DownloadState.Cancelled, "Download cancelled", 0, null, null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Native library download failed");
+            UpdateProgress(modelId, displayName, 0, 0,
+                DownloadState.Failed, $"Error: {ex.Message}", 0, null, null);
+        }
+        finally
+        {
+            try { if (File.Exists(tempZipPath)) File.Delete(tempZipPath); }
+            catch { /* ignore cleanup errors */ }
+        }
+    }
+
+    private Task ExtractNativeLibrariesAsync(string zipPath, CancellationToken cancellationToken)
+    {
+        return Task.Run(() =>
+        {
+            using var archive = ZipFile.OpenRead(zipPath);
+
+            var platform = GetCurrentPlatform();
+            var targetFiles = platform switch
+            {
+                "win-x64" => new[] { "llama.dll", "ggml.dll", "ggml-base.dll", "ggml-cpu.dll" },
+                "linux-x64" => new[] { "libllama.so", "libggml.so", "libggml-base.so", "libggml-cpu.so" },
+                _ => new[] { "libllama.dylib", "libggml.dylib", "libggml-base.dylib", "libggml-cpu.dylib" }
+            };
+
+            foreach (var entry in archive.Entries)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var fileName = Path.GetFileName(entry.FullName);
+                if (targetFiles.Any(t => fileName.Equals(t, StringComparison.OrdinalIgnoreCase)))
+                {
+                    var destPath = Path.Combine(_nativeDirectory, fileName);
+                    _logger.LogDebug("Extracting {File} to {Dest}", entry.FullName, destPath);
+
+                    entry.ExtractToFile(destPath, overwrite: true);
+                }
+            }
+        }, cancellationToken);
     }
 
     private async Task DownloadFileAsync(string modelId, string displayName, string filename, string url, long expectedSize, CancellationToken cancellationToken)
@@ -430,4 +639,15 @@ public record DownloadProgress(
     double Percentage,
     TimeSpan? EstimatedTimeRemaining,
     string? CompletedPath
+);
+
+/// <summary>
+/// Native library status information.
+/// </summary>
+public record NativeLibraryStatus(
+    string Platform,
+    bool IsInstalled,
+    string ExpectedFile,
+    string NativeDirectory,
+    string DownloadUrl
 );

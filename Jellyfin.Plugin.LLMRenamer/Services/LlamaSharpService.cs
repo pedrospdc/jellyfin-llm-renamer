@@ -1,6 +1,7 @@
 using System.Text;
 using LLama;
 using LLama.Common;
+using LLama.Native;
 using LLama.Sampling;
 using Microsoft.Extensions.Logging;
 
@@ -16,6 +17,7 @@ public class LlamaSharpService : ILlmService
     private LLamaWeights? _model;
     private LLamaContext? _context;
     private bool _disposed;
+    private static bool _nativeLibraryConfigured;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="LlamaSharpService"/> class.
@@ -24,6 +26,41 @@ public class LlamaSharpService : ILlmService
     public LlamaSharpService(ILogger<LlamaSharpService> logger)
     {
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Configures the native library path for LLamaSharp.
+    /// Must be called before any LLamaSharp operations.
+    /// </summary>
+    /// <param name="nativeLibraryPath">Path to directory containing native libraries.</param>
+    public void ConfigureNativeLibrary(string nativeLibraryPath)
+    {
+        if (_nativeLibraryConfigured)
+        {
+            _logger.LogDebug("Native library already configured, skipping");
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(nativeLibraryPath) && Directory.Exists(nativeLibraryPath))
+        {
+            // Find the llama library in the native path
+            var llamaLib = OperatingSystem.IsWindows()
+                ? Path.Combine(nativeLibraryPath, "llama.dll")
+                : OperatingSystem.IsMacOS()
+                    ? Path.Combine(nativeLibraryPath, "libllama.dylib")
+                    : Path.Combine(nativeLibraryPath, "libllama.so");
+
+            if (File.Exists(llamaLib))
+            {
+                _logger.LogInformation("Configuring native library: {Path}", llamaLib);
+                NativeLibraryConfig.All.WithLibrary(llamaLib, null);
+                _nativeLibraryConfigured = true;
+            }
+            else
+            {
+                _logger.LogWarning("Native library not found at: {Path}", llamaLib);
+            }
+        }
     }
 
     /// <inheritdoc />
@@ -40,6 +77,14 @@ public class LlamaSharpService : ILlmService
         if (!File.Exists(modelPath))
         {
             throw new FileNotFoundException($"Model file not found: {modelPath}");
+        }
+
+        // Configure native library path before loading
+        var pluginDataPath = Plugin.Instance?.DataFolderPath;
+        if (!string.IsNullOrEmpty(pluginDataPath))
+        {
+            var nativeLibPath = Path.Combine(pluginDataPath, "native");
+            ConfigureNativeLibrary(nativeLibPath);
         }
 
         await Task.Run(() =>

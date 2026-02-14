@@ -92,6 +92,19 @@
         .btn-cancel {
             background: #d32f2f !important;
         }
+        .native-status {
+            padding: 1em;
+            border-radius: 4px;
+            margin-bottom: 1em;
+        }
+        .native-status.installed {
+            background: rgba(82, 181, 75, 0.1);
+            border: 1px solid rgba(82, 181, 75, 0.3);
+        }
+        .native-status.missing {
+            background: rgba(242, 168, 59, 0.1);
+            border: 1px solid rgba(242, 168, 59, 0.3);
+        }
     </style>
 </head>
 <body>
@@ -111,6 +124,28 @@
                             <span class="status-indicator unloaded"></span>
                             <span id="statusText">Checking...</span>
                         </div>
+                    </div>
+
+                    <div class="section-divider"></div>
+
+                    <!-- Native Libraries Section -->
+                    <div class="verticalSection" id="nativeSection">
+                        <h3 class="sectionTitle">Native Libraries</h3>
+                        <div id="nativeStatus" class="native-status missing">
+                            <p><strong>Platform:</strong> <span id="nativePlatform">Detecting...</span></p>
+                            <p><strong>Status:</strong> <span id="nativeStatusText">Checking...</span></p>
+                            <p id="nativePathInfo" style="display:none; font-size: 0.9em; opacity: 0.8;">
+                                <strong>Location:</strong> <span id="nativePath"></span>
+                            </p>
+                            <div class="model-actions" id="nativeActions" style="display:none;">
+                                <button is="emby-button" type="button" class="raised" id="btnDownloadNative">
+                                    <span>Download Native Libraries</span>
+                                </button>
+                            </div>
+                        </div>
+                        <p style="opacity: 0.7; font-size: 0.85em;">
+                            LLM inference requires native llama.cpp libraries for your platform.
+                        </p>
                     </div>
 
                     <div class="section-divider"></div>
@@ -440,6 +475,7 @@
                                 loadAvailableModels();
                                 loadLocalModels();
                                 loadStatus();
+                                loadNativeStatus();
                                 stopProgressPolling();
                             }, 2000);
                             return;
@@ -555,13 +591,57 @@
                 });
             }
 
+            function loadNativeStatus() {
+                ApiClient.getJSON(ApiClient.getUrl('LLMRenamer/Native/Status')).then(function(status) {
+                    var container = document.getElementById('nativeStatus');
+                    var platformEl = document.getElementById('nativePlatform');
+                    var statusTextEl = document.getElementById('nativeStatusText');
+                    var pathInfoEl = document.getElementById('nativePathInfo');
+                    var pathEl = document.getElementById('nativePath');
+                    var actionsEl = document.getElementById('nativeActions');
+
+                    platformEl.textContent = status.Platform;
+                    pathEl.textContent = status.NativeDirectory;
+
+                    if (status.IsInstalled) {
+                        container.className = 'native-status installed';
+                        statusTextEl.innerHTML = '<span style="color: #52b54b;">&#10003;</span> Installed (' + status.ExpectedFile + ')';
+                        pathInfoEl.style.display = 'block';
+                        actionsEl.style.display = 'none';
+                    } else {
+                        container.className = 'native-status missing';
+                        statusTextEl.innerHTML = '<span style="color: #f2a83b;">&#9888;</span> Not installed - required for LLM inference';
+                        pathInfoEl.style.display = 'none';
+                        actionsEl.style.display = 'block';
+                    }
+                }).catch(function(err) {
+                    document.getElementById('nativeStatusText').textContent = 'Error checking status';
+                });
+            }
+
+            function downloadNativeLibraries() {
+                ApiClient.ajax({
+                    type: 'POST',
+                    url: ApiClient.getUrl('LLMRenamer/Native/Download')
+                }).then(function() {
+                    startProgressPolling();
+                    Dashboard.alert('Native library download started');
+                }).catch(function(err) {
+                    Dashboard.alert('Failed to start download: ' + (err.message || 'Unknown error'));
+                });
+            }
+
             // Page load
             document.querySelector('#LLMRenamerConfigPage').addEventListener('pageshow', function () {
                 Dashboard.showLoadingMsg();
 
                 loadStatus();
+                loadNativeStatus();
                 loadAvailableModels();
                 loadLocalModels();
+
+                // Native library download button
+                document.getElementById('btnDownloadNative').addEventListener('click', downloadNativeLibraries);
 
                 // Check if download in progress
                 ApiClient.getJSON(ApiClient.getUrl('LLMRenamer/Models/DownloadProgress')).then(function(progress) {
