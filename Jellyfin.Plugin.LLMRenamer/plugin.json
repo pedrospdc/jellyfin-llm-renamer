@@ -6,6 +6,6 @@
   "owner": "pedrospdc",
   "category": "Metadata",
   "version": "1.0.0.0",
-  "targetAbi": "10.11.6.0",
+  "targetAbi": "10.11.5.0",
   "changelog": "Initial release with support for Movies, TV Shows, and Music."
 }

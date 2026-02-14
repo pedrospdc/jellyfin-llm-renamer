@@ -72,7 +72,7 @@ jobs:
              '.[0].versions = [{
                version: $version,
                changelog: "Plugin updates and improvements.",
-               targetAbi: "10.11.6.0",
+               targetAbi: "10.11.5.0",
                sourceUrl: $url,
                checksum: $checksum,
                timestamp: $timestamp
