@@ -9,7 +9,15 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <AnalysisMode>AllDisabledByDefault</AnalysisMode>
+    <!-- Exclude native runtimes - Jellyfin tries to load them as assemblies -->
+    <PublishSingleFile>false</PublishSingleFile>
   </PropertyGroup>
+
+  <!-- Exclude native runtime files from publish output -->
+  <ItemGroup>
+    <Content Remove="runtimes\**" />
+    <None Remove="runtimes\**" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Jellyfin.Controller" Version="10.11.0" />

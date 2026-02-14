@@ -43,6 +43,8 @@ jobs:
       - name: Create plugin zip
         run: |
           cd Jellyfin.Plugin.LLMRenamer/publish
+          # Exclude native runtimes - Jellyfin tries to load them as assemblies and fails
+          rm -rf runtimes
           zip -r ../../jellyfin-llm-renamer-${{ steps.version.outputs.VERSION }}.zip .
 
       - name: Calculate checksum
