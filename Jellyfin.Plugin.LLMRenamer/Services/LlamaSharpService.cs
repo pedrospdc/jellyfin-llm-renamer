@@ -20,7 +20,7 @@ public class LlamaSharpService : ILlmService
     private bool _disposed;
     private static bool _nativeLibraryConfigured;
     private Timer? _idleUnloadTimer;
-    private static readonly TimeSpan IdleTimeout = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan IdleTimeout = TimeSpan.FromSeconds(10);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="LlamaSharpService"/> class.
@@ -325,8 +325,8 @@ public class LlamaSharpService : ILlmService
     private void OnIdleTimeout()
     {
         if (!IsModelLoaded) return;
-        _logger.LogInformation("Model idle for {Minutes} minutes, auto-unloading to free memory", IdleTimeout.TotalMinutes);
-        PluginLog.Info($"Auto-unloading model after {IdleTimeout.TotalMinutes} minutes idle");
+        _logger.LogInformation("Model idle for {Seconds}s, auto-unloading to free memory", IdleTimeout.TotalSeconds);
+        PluginLog.Info($"Auto-unloading model after {IdleTimeout.TotalSeconds}s idle");
         UnloadModel();
     }
 
