@@ -52,15 +52,37 @@ This is a Jellyfin plugin that uses LLamaSharp to run local LLM inference for re
 
 ## Release Workflow
 
-The GitHub Actions release workflow (`.github/workflows/release.yml`):
+The GitHub Actions release workflow (`.github/workflows/release.yml`) automatically:
 1. Extracts version from git tag (v0.0.7 → 0.0.7.0)
 2. Updates `plugin.json` version BEFORE building
 3. Publishes with `dotnet publish`
 4. Removes `runtimes/` folder (prevents Jellyfin from loading native libs as assemblies)
 5. Updates `manifest.json` with new version, checksum, URL
-6. Creates GitHub release
+6. Commits and pushes the manifest update to main
+7. Creates GitHub release
 
 To create a release: `git tag v0.0.X && git push origin v0.0.X`
+
+**Important:** The workflow auto-updates `manifest.json`. After creating a release, pull before making further commits:
+```bash
+git pull origin main
+```
+
+## Manual Manifest Update
+
+If needed, manually update `manifest.json` with:
+```bash
+# Calculate checksum
+md5sum jellyfin-llm-renamer-v0.0.X.zip
+
+# Update manifest.json versions array with:
+# - version: "0.0.X.0"
+# - sourceUrl: GitHub release download URL
+# - checksum: MD5 from above
+# - timestamp: ISO 8601 format (e.g., 2026-02-14T04:00:00Z)
+```
+
+The manifest should contain only ONE version entry (the latest) to avoid Jellyfin repository errors.
 
 ## Key Files
 
