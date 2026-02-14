@@ -88,22 +88,35 @@ public class RenameFilesTask : IScheduledTask
 
         _logger.LogInformation("Found {Count} items to process", totalItems);
 
-        // Generate rename suggestions
-        var suggestions = await _renamerService.GenerateRenameSuggestionsAsync(items, cancellationToken);
-
-        progress.Report(70);
-
-        _logger.LogInformation("Generated {Count} rename suggestions", suggestions.Count);
-
-        // Log suggestions
-        foreach (var suggestion in suggestions)
+        // Generate rename suggestions one item at a time for progress tracking
+        var suggestions = new List<FileRenamerService.RenameOperation>();
+        for (var i = 0; i < totalItems; i++)
         {
-            _logger.LogInformation(
-                "Suggestion: {Original} -> {New} ({Reason})",
-                Path.GetFileName(suggestion.OriginalPath),
-                Path.GetFileName(suggestion.NewPath),
-                suggestion.Reason);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var itemSuggestions = await _renamerService.GenerateRenameSuggestionsAsync(
+                new[] { items[i] }, cancellationToken);
+            suggestions.AddRange(itemSuggestions);
+
+            // Report progress: 10-80% for generation phase
+            var pct = 10 + (70.0 * (i + 1) / totalItems);
+            progress.Report(pct);
+
+            if (itemSuggestions.Count > 0)
+            {
+                foreach (var s in itemSuggestions)
+                {
+                    _logger.LogInformation(
+                        "Suggestion ({Index}/{Total}): {Original} -> {New} ({Reason})",
+                        i + 1, totalItems,
+                        Path.GetFileName(s.OriginalPath),
+                        Path.GetFileName(s.NewPath),
+                        s.Reason);
+                }
+            }
         }
+
+        _logger.LogInformation("Generated {Count} rename suggestions from {Total} items", suggestions.Count, totalItems);
 
         // Execute renames if not in preview mode
         if (!config.PreviewOnly && suggestions.Count > 0)
@@ -153,7 +166,17 @@ public class RenameFilesTask : IScheduledTask
     /// <inheritdoc />
     public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
     {
-        // No default triggers - user should manually run or configure
-        return Array.Empty<TaskTriggerInfo>();
+        return new[]
+        {
+            new TaskTriggerInfo
+            {
+                Type = TaskTriggerInfoType.StartupTrigger
+            },
+            new TaskTriggerInfo
+            {
+                Type = TaskTriggerInfoType.IntervalTrigger,
+                IntervalTicks = TimeSpan.FromHours(24).Ticks
+            }
+        };
     }
 }

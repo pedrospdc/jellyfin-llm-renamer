@@ -759,13 +759,17 @@
                 btn.disabled = true;
                 btn.querySelector('span').textContent = 'Testing...';
 
-                ApiClient.ajax({
-                    type: 'POST',
-                    url: ApiClient.getUrl('LLMRenamer/Test'),
-                    data: JSON.stringify({ Filename: filename }),
-                    contentType: 'application/json'
-                }).then(function(result) {
-                    var data = typeof result === 'string' ? JSON.parse(result) : result;
+                fetch(ApiClient.getUrl('LLMRenamer/Test'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Emby-Authorization': 'MediaBrowser Token="' + ApiClient.accessToken() + '"'
+                    },
+                    body: JSON.stringify({ Filename: filename })
+                }).then(function(response) {
+                    if (!response.ok) throw new Error('HTTP ' + response.status);
+                    return response.json();
+                }).then(function(data) {
                     document.getElementById('testResult').style.display = 'block';
                     document.getElementById('testOriginal').textContent = data.OriginalFilename;
                     document.getElementById('testSuggested').textContent = data.SuggestedFilename;
