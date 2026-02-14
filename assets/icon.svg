@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00a4dc;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#aa5cc3;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="docGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e8e8e8;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="url(#bgGrad)"/>
+
+  <!-- Document/file shape -->
+  <path d="M160 100 L320 100 L370 150 L370 412 L160 412 Z" fill="url(#docGrad)" stroke="#ffffff" stroke-width="4"/>
+
+  <!-- Folded corner -->
+  <path d="M320 100 L320 150 L370 150 Z" fill="#c8c8c8" stroke="#ffffff" stroke-width="2"/>
+
+  <!-- Text lines on document -->
+  <rect x="190" y="180" width="150" height="16" rx="4" fill="#00a4dc" opacity="0.7"/>
+  <rect x="190" y="210" width="120" height="16" rx="4" fill="#00a4dc" opacity="0.5"/>
+  <rect x="190" y="240" width="140" height="16" rx="4" fill="#00a4dc" opacity="0.6"/>
+
+  <!-- AI brain/neural network symbol -->
+  <g transform="translate(265, 330)">
+    <!-- Central node -->
+    <circle cx="0" cy="0" r="25" fill="#aa5cc3"/>
+    <circle cx="0" cy="0" r="15" fill="#ffffff"/>
+
+    <!-- Outer nodes -->
+    <circle cx="-50" cy="-30" r="15" fill="#00a4dc"/>
+    <circle cx="50" cy="-30" r="15" fill="#00a4dc"/>
+    <circle cx="-50" cy="30" r="15" fill="#00a4dc"/>
+    <circle cx="50" cy="30" r="15" fill="#00a4dc"/>
+
+    <!-- Connection lines -->
+    <line x1="0" y1="0" x2="-50" y2="-30" stroke="#ffffff" stroke-width="4" opacity="0.8"/>
+    <line x1="0" y1="0" x2="50" y2="-30" stroke="#ffffff" stroke-width="4" opacity="0.8"/>
+    <line x1="0" y1="0" x2="-50" y2="30" stroke="#ffffff" stroke-width="4" opacity="0.8"/>
+    <line x1="0" y1="0" x2="50" y2="30" stroke="#ffffff" stroke-width="4" opacity="0.8"/>
+
+    <!-- Inner dots on outer nodes -->
+    <circle cx="-50" cy="-30" r="6" fill="#ffffff"/>
+    <circle cx="50" cy="-30" r="6" fill="#ffffff"/>
+    <circle cx="-50" cy="30" r="6" fill="#ffffff"/>
+    <circle cx="50" cy="30" r="6" fill="#ffffff"/>
+  </g>
+
+  <!-- Rename arrow -->
+  <g transform="translate(130, 300)">
+    <path d="M0 20 L30 20 L30 10 L50 25 L30 40 L30 30 L0 30 Z" fill="#ffffff" opacity="0.9"/>
+  </g>
+</svg>

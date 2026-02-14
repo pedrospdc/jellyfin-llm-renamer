@@ -6,6 +6,7 @@
     "overview": "Uses local AI models via LLamaSharp to intelligently rename media files for optimal Jellyfin metadata scraping. No external services required - runs entirely locally.",
     "owner": "pedrospdc",
     "category": "Metadata",
+    "imageUrl": "https://raw.githubusercontent.com/pedrospdc/jellyfin-llm-renamer/main/assets/icon.png",
     "versions": [
       {
         "version": "1.0.0.0",
