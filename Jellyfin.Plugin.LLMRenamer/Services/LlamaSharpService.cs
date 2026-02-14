@@ -100,11 +100,14 @@ public class LlamaSharpService : ILlmService
         var config = Plugin.Instance?.Configuration;
         var maxTokens = config?.MaxTokens ?? 256;
 
+        // Wrap in Qwen/ChatML chat template so instruction-tuned models follow instructions
+        var chatPrompt = $"<|im_start|>system\nYou are a file renaming assistant. You respond with ONLY the new filename, nothing else.<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n";
+
         var executor = new StatelessExecutor(_model, _context.Params);
 
         var samplingPipeline = new DefaultSamplingPipeline
         {
-            Temperature = 0.3f,
+            Temperature = 0.1f,
             TopP = 0.9f,
             TopK = 40,
         };
@@ -112,13 +115,13 @@ public class LlamaSharpService : ILlmService
         var inferenceParams = new InferenceParams
         {
             MaxTokens = maxTokens,
-            AntiPrompts = new[] { "\n\n", "```", "</s>", "<|end|>", "<end_of_turn>" },
+            AntiPrompts = new[] { "<|im_end|>", "<|im_start|>", "\n\n", "```", "</s>", "<|end|>", "<end_of_turn>" },
             SamplingPipeline = samplingPipeline,
         };
 
         var result = new StringBuilder();
 
-        await foreach (var token in executor.InferAsync(prompt, inferenceParams, cancellationToken))
+        await foreach (var token in executor.InferAsync(chatPrompt, inferenceParams, cancellationToken))
         {
             result.Append(token);
         }

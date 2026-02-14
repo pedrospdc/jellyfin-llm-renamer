@@ -501,14 +501,20 @@ public class LLMRenamerController : ControllerBase
         }
 
         var prompt = $"""
-            Rename this media file to follow Jellyfin naming conventions.
-            For movies: "Movie Title (Year).ext"
-            For TV: "Series Name S##E## - Episode Title.ext"
+            Clean up a media filename for Jellyfin. Remove quality tags, release groups, and dots. Keep the extension.
 
-            FILENAME: {request.Filename}
+            Examples:
+            INPUT: The.Dark.Knight.2008.1080p.BluRay.x264-GROUP.mkv
+            OUTPUT: The Dark Knight (2008).mkv
+            INPUT: Breaking.Bad.S02E03.720p.HDTV.x264-LOL.mkv
+            OUTPUT: Breaking Bad S02E03.mkv
+            INPUT: [SubGroup] Attack on Titan - 05 (BD 1080p).mkv
+            OUTPUT: Attack on Titan S01E05.mkv
+            INPUT: interstellar.2014.brrip.mp4
+            OUTPUT: Interstellar (2014).mp4
 
-            Respond with ONLY the new filename. No explanation.
-            NEW FILENAME:
+            INPUT: {request.Filename}
+            OUTPUT:
             """;
 
         var result = await _llmService.GenerateAsync(prompt, cancellationToken);

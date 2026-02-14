@@ -287,29 +287,21 @@ public partial class FileRenamerService
     {
         var customAdditions = Plugin.Instance?.Configuration?.CustomPromptAdditions ?? string.Empty;
 
+        var year = movie.ProductionYear?.ToString() ?? "Unknown";
+        var title = movie.Name ?? "Unknown";
+
         return $"""
-            You are a file naming assistant. Rename the following movie file to follow Jellyfin naming conventions.
+            Rename a movie file to: "Title (Year).ext". Remove quality tags, groups, dots.
 
-            JELLYFIN MOVIE NAMING RULES:
-            - Format: "Movie Title (Year).ext"
-            - Use the actual release year in parentheses
-            - Remove quality tags, release groups, and extra info from the filename
-            - Keep the original file extension
-            - For versions, use: "Movie Title (Year) - 1080p.ext" or "Movie Title (Year) - [Directors Cut].ext"
-            - Replace special characters that aren't filesystem-safe
+            Examples:
+            INPUT: The.Dark.Knight.2008.1080p.BluRay.x264-GROUP.mkv | Title: The Dark Knight | Year: 2008
+            OUTPUT: The Dark Knight (2008).mkv
+            INPUT: inception.2010.brrip.mp4 | Title: Inception | Year: 2010
+            OUTPUT: Inception (2010).mp4
 
-            ORIGINAL FILENAME: {originalFileName}
-
-            METADATA (if available):
-            - Title: {movie.Name ?? "Unknown"}
-            - Year: {movie.ProductionYear?.ToString() ?? "Unknown"}
-            - IMDB: {GetProviderId(movie, MetadataProvider.Imdb)}
-            - TMDB: {GetProviderId(movie, MetadataProvider.Tmdb)}
-
+            INPUT: {originalFileName} | Title: {title} | Year: {year}
             {customAdditions}
-
-            Respond with ONLY the new filename (including extension). No explanation.
-            NEW FILENAME:
+            OUTPUT:
             """;
     }
 
@@ -317,30 +309,23 @@ public partial class FileRenamerService
     {
         var customAdditions = Plugin.Instance?.Configuration?.CustomPromptAdditions ?? string.Empty;
 
+        var series = episode.SeriesName ?? "Unknown";
+        var season = episode.ParentIndexNumber?.ToString("D2") ?? "00";
+        var ep = episode.IndexNumber?.ToString("D2") ?? "00";
+        var epTitle = episode.Name ?? "";
+
         return $"""
-            You are a file naming assistant. Rename the following TV episode file to follow Jellyfin naming conventions.
+            Rename a TV episode file to: "Series S##E## - Episode Title.ext". Remove quality tags, groups, dots.
 
-            JELLYFIN TV EPISODE NAMING RULES:
-            - Format: "Series Name S##E## - Episode Title.ext"
-            - Season number: two digits with leading zero (S01, S02, etc.)
-            - Episode number: two digits with leading zero (E01, E02, etc.)
-            - Multi-episode: "S01E01-E02.ext"
-            - Specials go in Season 00: "S00E01.ext"
-            - Remove quality tags, release groups, and extra info
-            - Keep the original file extension
+            Examples:
+            INPUT: Breaking.Bad.S02E03.720p.BluRay.mkv | Series: Breaking Bad | Season: 02 | Episode: 03 | Title: Bit by a Dead Bee
+            OUTPUT: Breaking Bad S02E03 - Bit by a Dead Bee.mkv
+            INPUT: [Sub] Attack on Titan - 05 (1080p).mkv | Series: Attack on Titan | Season: 01 | Episode: 05 | Title: First Battle
+            OUTPUT: Attack on Titan S01E05 - First Battle.mkv
 
-            ORIGINAL FILENAME: {originalFileName}
-
-            METADATA (if available):
-            - Series: {episode.SeriesName ?? "Unknown"}
-            - Season: {episode.ParentIndexNumber?.ToString() ?? "Unknown"}
-            - Episode: {episode.IndexNumber?.ToString() ?? "Unknown"}
-            - Episode Title: {episode.Name ?? "Unknown"}
-
+            INPUT: {originalFileName} | Series: {series} | Season: {season} | Episode: {ep} | Title: {epTitle}
             {customAdditions}
-
-            Respond with ONLY the new filename (including extension). No explanation.
-            NEW FILENAME:
+            OUTPUT:
             """;
     }
 
@@ -348,27 +333,22 @@ public partial class FileRenamerService
     {
         var customAdditions = Plugin.Instance?.Configuration?.CustomPromptAdditions ?? string.Empty;
 
+        var track = audio.IndexNumber?.ToString("D2") ?? "00";
+        var title = audio.Name ?? "Unknown";
+        var artist = string.Join(", ", audio.Artists ?? Array.Empty<string>());
+
         return $"""
-            You are a file naming assistant. Rename the following music file to follow Jellyfin naming conventions.
+            Rename a music file to: "## - Track Title.ext". Remove quality tags and extra info.
 
-            JELLYFIN MUSIC NAMING RULES:
-            - Format: "## - Track Title.ext" where ## is the track number with leading zero
-            - Keep the original file extension
-            - Remove quality tags and extra info from filename
-            - Music metadata is primarily read from embedded tags, but clean filenames help
+            Examples:
+            INPUT: 03 - Bohemian Rhapsody [FLAC 24bit].flac | Track: 03 | Title: Bohemian Rhapsody
+            OUTPUT: 03 - Bohemian Rhapsody.flac
+            INPUT: queen_another_one_bites_the_dust.mp3 | Track: 05 | Title: Another One Bites the Dust
+            OUTPUT: 05 - Another One Bites the Dust.mp3
 
-            ORIGINAL FILENAME: {originalFileName}
-
-            METADATA (if available):
-            - Track: {audio.IndexNumber?.ToString() ?? "Unknown"}
-            - Title: {audio.Name ?? "Unknown"}
-            - Album: {audio.Album ?? "Unknown"}
-            - Artist: {string.Join(", ", audio.Artists ?? Array.Empty<string>())}
-
+            INPUT: {originalFileName} | Track: {track} | Title: {title} | Artist: {artist}
             {customAdditions}
-
-            Respond with ONLY the new filename (including extension). No explanation.
-            NEW FILENAME:
+            OUTPUT:
             """;
     }
 
