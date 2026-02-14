@@ -472,6 +472,7 @@
                                 loadLocalModels();
                                 loadStatus();
                                 loadNativeStatus();
+                                loadFormFromConfig();
                                 stopProgressPolling();
                             }, 2000);
                             return;
@@ -557,12 +558,7 @@
                     loadLocalModels();
                     loadAvailableModels();
                     loadStatus();
-
-                    ApiClient.getPluginConfiguration(LLMRenamerConfig.pluginUniqueId).then(function(config) {
-                        document.getElementById('txtModelPath').value = config.ModelPath || '';
-                        document.getElementById('txtModelName').value = config.ModelName || '';
-                    });
-
+                    loadFormFromConfig();
                     Dashboard.alert('Model set as active!');
                 }).catch(function(err) {
                     Dashboard.alert('Failed to set model: ' + (err.message || 'Unknown error'));
@@ -627,6 +623,23 @@
                 });
             }
 
+            function loadFormFromConfig() {
+                ApiClient.getPluginConfiguration(LLMRenamerConfig.pluginUniqueId).then(function (config) {
+                    document.querySelector('#txtModelPath').value = config.ModelPath || '';
+                    document.querySelector('#txtModelName').value = config.ModelName || '';
+                    document.querySelector('#numGpuLayers').value = config.GpuLayerCount || 0;
+                    document.querySelector('#numContextSize').value = config.ContextSize || 2048;
+                    document.querySelector('#numMaxTokens').value = config.MaxTokens || 256;
+                    document.querySelector('#chkPreviewOnly').checked = config.PreviewOnly !== false;
+                    document.querySelector('#chkEnableAutoRename').checked = config.EnableAutoRename === true;
+                    document.querySelector('#chkRenameMovies').checked = config.RenameMovies !== false;
+                    document.querySelector('#chkRenameEpisodes').checked = config.RenameEpisodes !== false;
+                    document.querySelector('#chkRenameMusic').checked = config.RenameMusic === true;
+                    document.querySelector('#txtCustomPrompt').value = config.CustomPromptAdditions || '';
+                    Dashboard.hideLoadingMsg();
+                });
+            }
+
             // Page load
             document.querySelector('#LLMRenamerConfigPage').addEventListener('pageshow', function () {
                 Dashboard.showLoadingMsg();
@@ -647,20 +660,7 @@
                     }
                 });
 
-                ApiClient.getPluginConfiguration(LLMRenamerConfig.pluginUniqueId).then(function (config) {
-                    document.querySelector('#txtModelPath').value = config.ModelPath || '';
-                    document.querySelector('#txtModelName').value = config.ModelName || 'gemma-3-1b-it';
-                    document.querySelector('#numGpuLayers').value = config.GpuLayerCount || 0;
-                    document.querySelector('#numContextSize').value = config.ContextSize || 2048;
-                    document.querySelector('#numMaxTokens').value = config.MaxTokens || 256;
-                    document.querySelector('#chkPreviewOnly').checked = config.PreviewOnly !== false;
-                    document.querySelector('#chkEnableAutoRename').checked = config.EnableAutoRename === true;
-                    document.querySelector('#chkRenameMovies').checked = config.RenameMovies !== false;
-                    document.querySelector('#chkRenameEpisodes').checked = config.RenameEpisodes !== false;
-                    document.querySelector('#chkRenameMusic').checked = config.RenameMusic === true;
-                    document.querySelector('#txtCustomPrompt').value = config.CustomPromptAdditions || '';
-                    Dashboard.hideLoadingMsg();
-                });
+                loadFormFromConfig();
             });
 
             // Page unload - stop polling
