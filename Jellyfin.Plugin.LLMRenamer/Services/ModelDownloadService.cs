@@ -23,17 +23,9 @@ public class ModelDownloadService : IDisposable
     /// </summary>
     public static readonly IReadOnlyList<ModelInfo> AvailableModels = new List<ModelInfo>
     {
-        new("gemma-3-1b-it-q4_0", "Google Gemma 3 1B Instruct (Q4_0)",
-            "google/gemma-3-1b-it-qf4_0-GGUF", "gemma-3-1b-it-q4_0.gguf",
-            714_000_000, "Small, fast, good for basic renaming"),
-
-        new("gemma-3-4b-it-q4_0", "Google Gemma 3 4B Instruct (Q4_0)",
-            "google/gemma-3-4b-it-qf4_0-GGUF", "gemma-3-4b-it-q4_0.gguf",
-            2_500_000_000, "Better quality, requires more RAM"),
-
-        new("phi-3-mini-4k-instruct-q4", "Microsoft Phi-3 Mini 4K (Q4_K_M)",
-            "microsoft/Phi-3-mini-4k-instruct-gguf", "Phi-3-mini-4k-instruct-q4.gguf",
-            2_300_000_000, "Good balance of speed and quality"),
+        new("qwen2.5-0.5b-instruct-q4_k_m", "Qwen 2.5 0.5B Instruct (Q4_K_M)",
+            "Qwen/Qwen2.5-0.5B-Instruct-GGUF", "qwen2.5-0.5b-instruct-q4_k_m.gguf",
+            400_000_000, "Tiny and fast, good for basic renaming"),
 
         new("qwen2.5-1.5b-instruct-q4_k_m", "Qwen 2.5 1.5B Instruct (Q4_K_M)",
             "Qwen/Qwen2.5-1.5B-Instruct-GGUF", "qwen2.5-1.5b-instruct-q4_k_m.gguf",
@@ -42,6 +34,14 @@ public class ModelDownloadService : IDisposable
         new("llama-3.2-1b-instruct-q4_k_m", "Meta Llama 3.2 1B Instruct (Q4_K_M)",
             "bartowski/Llama-3.2-1B-Instruct-GGUF", "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
             800_000_000, "Fast and efficient, good for simple tasks"),
+
+        new("qwen2.5-3b-instruct-q4_k_m", "Qwen 2.5 3B Instruct (Q4_K_M)",
+            "Qwen/Qwen2.5-3B-Instruct-GGUF", "qwen2.5-3b-instruct-q4_k_m.gguf",
+            2_000_000_000, "Better quality, requires more RAM"),
+
+        new("phi-3-mini-4k-instruct-q4", "Microsoft Phi-3 Mini 4K (Q4_K_M)",
+            "microsoft/Phi-3-mini-4k-instruct-gguf", "Phi-3-mini-4k-instruct-q4.gguf",
+            2_300_000_000, "Good balance of speed and quality"),
     };
 
     private readonly string _nativeDirectory;

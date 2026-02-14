@@ -30,10 +30,6 @@
         }
         .progress-container {
             margin-top: 0.75em;
-            display: none;
-        }
-        .progress-container.visible {
-            display: block;
         }
         .progress-bar {
             height: 8px;
@@ -151,7 +147,7 @@
                     <div class="section-divider"></div>
 
                     <!-- Download Progress Banner -->
-                    <div class="verticalSection progress-container" id="globalDownloadProgress">
+                    <div class="verticalSection" id="globalDownloadProgress" style="display: none;">
                         <h3 class="sectionTitle">Downloading Model</h3>
                         <div class="model-card">
                             <h4 id="downloadingModelName">...</h4>
@@ -460,7 +456,7 @@
                     // Check if completed or failed
                     if (progress && progress.State) {
                         if (progress.State === 'Completed') {
-                            container.classList.add('visible');
+                            container.style.display = 'block';
                             name.textContent = progress.DisplayName || 'Model';
                             fill.style.width = '100%';
                             fill.classList.remove('error');
@@ -470,7 +466,7 @@
                             // Clear after a moment and refresh
                             setTimeout(function() {
                                 ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('LLMRenamer/Models/ClearDownloadStatus') });
-                                container.classList.remove('visible');
+                                container.style.display = 'none';
                                 currentDownloadingModelId = null;
                                 loadAvailableModels();
                                 loadLocalModels();
@@ -480,7 +476,7 @@
                             }, 2000);
                             return;
                         } else if (progress.State === 'Failed' || progress.State === 'Cancelled') {
-                            container.classList.add('visible');
+                            container.style.display = 'block';
                             name.textContent = progress.DisplayName || 'Model';
                             fill.style.width = '100%';
                             fill.classList.add('error');
@@ -489,7 +485,7 @@
 
                             setTimeout(function() {
                                 ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('LLMRenamer/Models/ClearDownloadStatus') });
-                                container.classList.remove('visible');
+                                container.style.display = 'none';
                                 currentDownloadingModelId = null;
                                 loadAvailableModels();
                                 stopProgressPolling();
@@ -498,12 +494,12 @@
                         }
                     }
 
-                    container.classList.remove('visible');
+                    container.style.display = 'none';
                     currentDownloadingModelId = null;
                     return;
                 }
 
-                container.classList.add('visible');
+                container.style.display = 'block';
                 currentDownloadingModelId = progress.ModelId;
                 name.textContent = progress.DisplayName || progress.ModelId;
                 fill.style.width = progress.Percentage + '%';
