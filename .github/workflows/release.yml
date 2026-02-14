@@ -26,8 +26,8 @@ jobs:
         run: dotnet restore
         working-directory: Jellyfin.Plugin.LLMRenamer
 
-      - name: Build
-        run: dotnet build -c Release --no-restore
+      - name: Publish
+        run: dotnet publish -c Release --no-restore -o publish
         working-directory: Jellyfin.Plugin.LLMRenamer
 
       - name: Get version from tag
@@ -37,13 +37,13 @@ jobs:
       - name: Get plugin version from plugin.json
         id: plugin_version
         run: |
-          PLUGIN_VERSION=$(jq -r '.version' Jellyfin.Plugin.LLMRenamer/bin/Release/net9.0/plugin.json)
+          PLUGIN_VERSION=$(jq -r '.version' Jellyfin.Plugin.LLMRenamer/publish/plugin.json)
           echo "PLUGIN_VERSION=$PLUGIN_VERSION" >> $GITHUB_OUTPUT
 
       - name: Create plugin zip
         run: |
-          cd Jellyfin.Plugin.LLMRenamer/bin/Release/net9.0
-          zip -r ../../../../jellyfin-llm-renamer-${{ steps.version.outputs.VERSION }}.zip .
+          cd Jellyfin.Plugin.LLMRenamer/publish
+          zip -r ../../jellyfin-llm-renamer-${{ steps.version.outputs.VERSION }}.zip .
 
       - name: Calculate checksum
         id: checksum
