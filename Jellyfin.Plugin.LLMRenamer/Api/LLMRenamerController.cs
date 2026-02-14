@@ -140,7 +140,7 @@ public class LLMRenamerController : ControllerBase
     /// </summary>
     /// <param name="modelId">The model ID to download.</param>
     /// <returns>Result indicating download started.</returns>
-    [HttpPost("Models/Download/{modelId}")]
+    [HttpPost("Models/Download/{**modelId}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -263,7 +263,7 @@ public class LLMRenamerController : ControllerBase
     /// </summary>
     /// <param name="filename">The filename to delete.</param>
     /// <returns>Result of the delete operation.</returns>
-    [HttpDelete("Models/{filename}")]
+    [HttpDelete("Models/{**filename}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult DeleteModel([FromRoute, Required] string filename)
@@ -290,7 +290,7 @@ public class LLMRenamerController : ControllerBase
     /// </summary>
     /// <param name="filename">The filename to set as active.</param>
     /// <returns>Result of the operation.</returns>
-    [HttpPost("Models/SetActive/{filename}")]
+    [HttpPost("Models/SetActive/{**filename}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult SetActiveModel([FromRoute, Required] string filename)
