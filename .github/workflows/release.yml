@@ -49,6 +49,8 @@ jobs:
           cd Jellyfin.Plugin.LLMRenamer/publish
           # Exclude native runtimes - Jellyfin tries to load them as assemblies and fails
           rm -rf runtimes
+          # Exclude Jellyfin-provided DLLs - they cause version conflicts
+          rm -f MediaBrowser.*.dll Jellyfin.Data.dll Jellyfin.Extensions.dll Jellyfin.Database.*.dll Emby.*.dll
           zip -r ../../jellyfin-llm-renamer-${{ steps.version.outputs.VERSION }}.zip .
 
       - name: Calculate checksum
