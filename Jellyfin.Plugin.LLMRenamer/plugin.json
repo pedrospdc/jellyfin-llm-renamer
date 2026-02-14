@@ -1,0 +1,11 @@
+{
+  "guid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "LLM File Renamer",
+  "description": "Automatically renames media files using a local LLM (Gemma) to follow Jellyfin naming conventions.",
+  "overview": "Uses local AI models via LLamaSharp to intelligently rename media files for optimal Jellyfin metadata scraping.",
+  "owner": "pedrospdc",
+  "category": "Metadata",
+  "version": "1.0.0.0",
+  "targetAbi": "10.11.0.0",
+  "changelog": "Initial release with support for Movies, TV Shows, and Music."
+}
