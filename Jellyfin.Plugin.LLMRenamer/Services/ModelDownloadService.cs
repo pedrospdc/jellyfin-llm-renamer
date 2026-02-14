@@ -49,7 +49,7 @@ public class ModelDownloadService : IDisposable
     /// <summary>
     /// llama.cpp release version to download.
     /// </summary>
-    private const string LlamaCppVersion = "b4815";
+    private const string LlamaCppVersion = "b8030";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ModelDownloadService"/> class.
