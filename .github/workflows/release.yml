@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+        working-directory: Jellyfin.Plugin.LLMRenamer
+
+      - name: Build
+        run: dotnet build -c Release --no-restore
+        working-directory: Jellyfin.Plugin.LLMRenamer
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create plugin zip
+        run: |
+          cd Jellyfin.Plugin.LLMRenamer/bin/Release/net9.0
+          zip -r ../../../../jellyfin-llm-renamer-${{ steps.version.outputs.VERSION }}.zip .
+
+      - name: Calculate checksum
+        id: checksum
+        run: |
+          CHECKSUM=$(md5sum jellyfin-llm-renamer-${{ steps.version.outputs.VERSION }}.zip | cut -d ' ' -f 1)
+          echo "MD5=$CHECKSUM" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: jellyfin-llm-renamer-${{ steps.version.outputs.VERSION }}.zip
+          generate_release_notes: true
+          body: |
+            ## Installation
+
+            ### Via Plugin Repository (Recommended)
+            Add this repository URL to Jellyfin: `https://raw.githubusercontent.com/pedrospdc/jellyfin-llm-renamer/main/manifest.json`
+
+            ### Manual Installation
+            1. Download `jellyfin-llm-renamer-${{ steps.version.outputs.VERSION }}.zip`
+            2. Extract to your Jellyfin plugins directory
+            3. Restart Jellyfin
+
+            **MD5 Checksum:** `${{ steps.checksum.outputs.MD5 }}`
