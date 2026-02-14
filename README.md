@@ -5,20 +5,22 @@ A Jellyfin plugin that uses local AI models (via LLamaSharp) to automatically re
 ## Features
 
 - **Built-in Model Downloader** - Download models directly from the admin UI
+- **Directory Renaming** - Optionally rename parent directories to match Jellyfin conventions
 - Renames movies to `Movie Title (Year).ext` format
 - Renames TV episodes to `Series Name S##E## - Episode Title.ext` format
 - Renames music to `## - Track Title.ext` format
 - Uses local LLM inference via LLamaSharp (no Ollama dependency)
-- Supports Gemma, Phi, Llama, Qwen, and other GGUF models
+- Supports Qwen, Llama, Phi, and other GGUF models
 - Preview mode to see suggestions before renaming
 - Auto-rename on library scan (optional)
 - Test rename feature in the admin UI
 - API endpoints for programmatic access
+- Native library auto-download for Windows, Linux, and macOS
 
 ## Requirements
 
 - Jellyfin 10.11.0 or later
-- Sufficient RAM for model loading (1B model needs ~2GB)
+- Sufficient RAM for model loading (3B model needs ~4GB)
 
 ## Installation
 
@@ -50,16 +52,17 @@ Add this plugin repository to Jellyfin:
 ```bash
 git clone https://github.com/pedrospdc/jellyfin-llm-renamer.git
 cd jellyfin-llm-renamer/Jellyfin.Plugin.LLMRenamer
-dotnet build -c Release
+dotnet publish -c Release --no-restore -o publish
 ```
 
-The plugin files will be in `bin/Release/net9.0/`. Copy all DLLs and `plugin.json` to your Jellyfin plugins directory, then restart Jellyfin.
+The plugin files will be in `publish/`. Copy all DLLs and `plugin.json` to your Jellyfin plugins directory, then restart Jellyfin.
 
-### After Installation
+### First-Time Setup
 
 1. Go to **Dashboard > Plugins > LLM File Renamer**
-2. Download a model from the admin UI (see below)
-3. Configure your preferences
+2. Click **Download Native Libraries** (required once per platform)
+3. Download the recommended model (Qwen 2.5 3B)
+4. Configure your preferences
 
 ## Getting a Model
 
@@ -82,13 +85,13 @@ Download a GGUF model from Hugging Face and specify the path manually.
 
 ## Available Models
 
-| Model | Size | Memory | Description |
-|-------|------|--------|-------------|
-| **Gemma 3 1B** (Recommended) | ~700MB | ~2GB | Small, fast, good for basic renaming |
-| Gemma 3 4B | ~2.5GB | ~4GB | Better quality, requires more RAM |
-| Phi-3 Mini 4K | ~2.3GB | ~3GB | Good balance of speed and quality |
-| Qwen 2.5 1.5B | ~1GB | ~2GB | Compact with good instruction following |
-| Llama 3.2 1B | ~800MB | ~2GB | Fast and efficient |
+| Model | Size | Description |
+|-------|------|-------------|
+| **Qwen 2.5 3B** (Recommended) | ~2GB | Best rename quality, reliable instruction following |
+| Qwen 2.5 1.5B | ~1GB | Good balance of speed and quality |
+| Qwen 2.5 0.5B | ~400MB | Fastest, lower rename quality |
+| Llama 3.2 1B | ~800MB | Alternative 1B model |
+| Phi-3 Mini 4K | ~2.3GB | Alternative 3.8B model |
 
 ## Configuration
 
@@ -103,6 +106,17 @@ Download a GGUF model from Hugging Face and specify the path manually.
 | Rename Movies | Process movie files | true |
 | Rename Episodes | Process TV episode files | true |
 | Rename Music | Process music files | false |
+| Rename Directories | Rename parent directories to Jellyfin conventions | false |
+
+## Directory Renaming
+
+When enabled, the plugin also renames parent directories using Jellyfin metadata (no LLM needed):
+
+- **Movies:** `The.Matrix.1999.1080p/` → `The Matrix (1999)/`
+- **TV Series:** `breaking.bad.complete/` → `Breaking Bad (2008)/`
+- **TV Seasons:** `Season.1.720p/` → `Season 01/`
+
+This uses metadata directly (title, year, season number) for reliable, deterministic renaming.
 
 ## Testing
 
@@ -147,7 +161,7 @@ Music/
 
 ## API Endpoints
 
-All endpoints require admin authentication.
+All endpoints require admin authentication via `X-Emby-Token` header.
 
 ### Status & Model Management
 
@@ -161,8 +175,10 @@ All endpoints require admin authentication.
 | `/LLMRenamer/Models/Download/{modelId}` | POST | Download a predefined model |
 | `/LLMRenamer/Models/DownloadCustom` | POST | Download from custom URL |
 | `/LLMRenamer/Models/DownloadProgress` | GET | Get current download progress |
-| `/LLMRenamer/Models/SetActive/{filename}` | POST | Set a model as active |
+| `/LLMRenamer/Models/SetActive/{filename}` | POST | Set a model as active and load it |
 | `/LLMRenamer/Models/{filename}` | DELETE | Delete a local model |
+| `/LLMRenamer/Native/Status` | GET | Get native library status |
+| `/LLMRenamer/Native/Download` | POST | Download native libraries for current platform |
 
 ### Rename Operations
 
@@ -176,14 +192,14 @@ All endpoints require admin authentication.
 
 **Download a model:**
 ```bash
-curl -X POST "http://localhost:8096/LLMRenamer/Models/Download/gemma-3-1b-it-q4_0" \
-  -H "X-Emby-Authorization: MediaBrowser Token=YOUR_TOKEN"
+curl -X POST "http://localhost:8096/LLMRenamer/Models/Download/qwen2.5-3b-instruct-q4_k_m" \
+  -H "X-Emby-Token: YOUR_TOKEN"
 ```
 
 **Test rename:**
 ```bash
 curl -X POST "http://localhost:8096/LLMRenamer/Test" \
-  -H "X-Emby-Authorization: MediaBrowser Token=YOUR_TOKEN" \
+  -H "X-Emby-Token: YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"Filename": "The.Matrix.1999.1080p.BluRay.x264-GROUP.mkv"}'
 ```
@@ -191,7 +207,7 @@ curl -X POST "http://localhost:8096/LLMRenamer/Test" \
 **Download custom model:**
 ```bash
 curl -X POST "http://localhost:8096/LLMRenamer/Models/DownloadCustom" \
-  -H "X-Emby-Authorization: MediaBrowser Token=YOUR_TOKEN" \
+  -H "X-Emby-Token: YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"Url": "https://example.com/model.gguf", "Filename": "my-model.gguf"}'
 ```
@@ -204,7 +220,13 @@ The plugin adds a scheduled task "LLM File Renamer" under Library tasks. You can
 
 ## Troubleshooting
 
+### Native libraries not found
+- Go to the plugin config page and click "Download Native Libraries"
+- This downloads the correct llama.cpp binaries for your platform from the LLamaSharp NuGet package
+- Libraries are stored in the plugin data directory under `runtimes/`
+
 ### Model fails to load
+- Ensure native libraries are downloaded first
 - Verify the model file is not corrupted (re-download if needed)
 - Ensure you have enough RAM available
 - Check Jellyfin logs for detailed error messages
@@ -215,36 +237,14 @@ The plugin adds a scheduled task "LLM File Renamer" under Library tasks. You can
 - Try downloading a smaller model first
 
 ### Poor rename suggestions
-- Try a larger model (4B instead of 1B)
+- Use the recommended Qwen 2.5 3B model (smaller models produce worse results)
 - Add custom prompt instructions in configuration
 - Ensure metadata is properly scraped for your media
 
 ### High memory usage
-- Use a smaller quantized model (Q4_0 or Q4_K_M)
+- Use a smaller quantized model (Q4_K_M)
 - Reduce context size to 1024
 - Unload model when not in use via API or restart Jellyfin
-
-## Creating a Release
-
-For maintainers, to create a new release:
-
-1. Update the version in `plugin.json`
-2. Build the release:
-   ```bash
-   cd Jellyfin.Plugin.LLMRenamer
-   dotnet build -c Release
-   ```
-3. Create a zip file containing all files from `bin/Release/net9.0/`:
-   ```bash
-   cd bin/Release/net9.0
-   zip -r jellyfin-llm-renamer-v1.0.0.zip .
-   ```
-4. Create a GitHub release with the zip file
-5. Update `manifest.json` with:
-   - New version entry
-   - Updated `sourceUrl` pointing to the release zip
-   - MD5 checksum of the zip file (`md5sum jellyfin-llm-renamer-v1.0.0.zip`)
-   - Current timestamp
 
 ## Contributing
 
