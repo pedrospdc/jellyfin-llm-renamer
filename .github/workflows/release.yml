@@ -13,6 +13,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -31,6 +34,12 @@ jobs:
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
+      - name: Get plugin version from plugin.json
+        id: plugin_version
+        run: |
+          PLUGIN_VERSION=$(jq -r '.version' Jellyfin.Plugin.LLMRenamer/bin/Release/net9.0/plugin.json)
+          echo "PLUGIN_VERSION=$PLUGIN_VERSION" >> $GITHUB_OUTPUT
+
       - name: Create plugin zip
         run: |
           cd Jellyfin.Plugin.LLMRenamer/bin/Release/net9.0
@@ -42,6 +51,33 @@ jobs:
           CHECKSUM=$(md5sum jellyfin-llm-renamer-${{ steps.version.outputs.VERSION }}.zip | cut -d ' ' -f 1)
           echo "MD5=$CHECKSUM" >> $GITHUB_OUTPUT
 
+      - name: Get current timestamp
+        id: timestamp
+        run: echo "TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
+
+      - name: Update manifest.json
+        run: |
+          jq --arg version "${{ steps.plugin_version.outputs.PLUGIN_VERSION }}" \
+             --arg url "https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/jellyfin-llm-renamer-${{ steps.version.outputs.VERSION }}.zip" \
+             --arg checksum "${{ steps.checksum.outputs.MD5 }}" \
+             --arg timestamp "${{ steps.timestamp.outputs.TIMESTAMP }}" \
+             '.[0].versions = [{
+               version: $version,
+               changelog: .[0].versions[0].changelog,
+               targetAbi: .[0].versions[0].targetAbi,
+               sourceUrl: $url,
+               checksum: $checksum,
+               timestamp: $timestamp
+             }] + .[0].versions' manifest.json > manifest.tmp && mv manifest.tmp manifest.json
+
+      - name: Commit manifest update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          git commit -m "Update manifest.json for ${{ steps.version.outputs.VERSION }}" || echo "No changes to commit"
+          git push origin main
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -51,7 +87,7 @@ jobs:
             ## Installation
 
             ### Via Plugin Repository (Recommended)
-            Add this repository URL to Jellyfin: `https://raw.githubusercontent.com/pedrospdc/jellyfin-llm-renamer/main/manifest.json`
+            Add this repository URL to Jellyfin: `https://raw.githubusercontent.com/${{ github.repository }}/main/manifest.json`
 
             ### Manual Installation
             1. Download `jellyfin-llm-renamer-${{ steps.version.outputs.VERSION }}.zip`
