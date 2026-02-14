@@ -20,15 +20,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Jellyfin packages - exclude from output, provided by Jellyfin at runtime -->
-    <PackageReference Include="Jellyfin.Controller" Version="10.11.5">
-      <PrivateAssets>all</PrivateAssets>
-      <ExcludeAssets>runtime</ExcludeAssets>
-    </PackageReference>
-    <PackageReference Include="Jellyfin.Model" Version="10.11.5">
-      <PrivateAssets>all</PrivateAssets>
-      <ExcludeAssets>runtime</ExcludeAssets>
-    </PackageReference>
+    <!-- Jellyfin packages - provided by Jellyfin at runtime, don't copy to output -->
+    <PackageReference Include="Jellyfin.Controller" Version="10.11.5" Private="false" ExcludeAssets="runtime" />
+    <PackageReference Include="Jellyfin.Model" Version="10.11.5" Private="false" ExcludeAssets="runtime" />
     <PackageReference Include="LLamaSharp" Version="0.21.0" />
     <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.21.0" />
   </ItemGroup>
