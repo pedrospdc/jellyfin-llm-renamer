@@ -34,11 +34,11 @@ This is a Jellyfin plugin that uses LLamaSharp to run local LLM inference for re
 
 ### Service Layer
 
-**LlamaSharpService** - Wraps LLamaSharp for model loading/inference. Uses `StatelessExecutor` with `DefaultSamplingPipeline`. Requires native llama.cpp libraries configured via `NativeLibraryConfig.All.WithLibrary()`.
+**LlamaSharpService** - Wraps LLamaSharp for model loading/inference. Uses `StatelessExecutor` with `DefaultSamplingPipeline`. Native libraries are discovered via `NativeLibraryConfig.All.WithSearchDirectory()` pointing to the plugin data directory.
 
 **FileRenamerService** - Builds prompts for movies/episodes/music with Jellyfin naming conventions, sends to LLM, cleans output. Pattern matches on `Movie`, `Episode`, `Audio` types.
 
-**ModelDownloadService** - Downloads GGUF models from Hugging Face URLs with progress tracking. Also handles native library downloads from llama.cpp releases.
+**ModelDownloadService** - Downloads GGUF models from Hugging Face URLs with progress tracking. Also downloads native libraries from the LLamaSharp.Backend.Cpu NuGet package, extracting them into `runtimes/{rid}/native/{avx}/` structure in the plugin data directory.
 
 ### API
 
@@ -83,6 +83,72 @@ md5sum jellyfin-llm-renamer-v0.0.X.zip
 ```
 
 The manifest should contain only ONE version entry (the latest) to avoid Jellyfin repository errors.
+
+## Testing
+
+### Deploy and Test Locally
+
+Jellyfin runs on the Windows host (accessible from WSL at `172.29.32.1:8096`). API key: `b7dcc95167a64c96b3204b4ab6758dbd`.
+
+```bash
+API_KEY="b7dcc95167a64c96b3204b4ab6758dbd"
+HOST="http://172.29.32.1:8096"
+PLUGIN_DIR="/mnt/c/ProgramData/Jellyfin/Server/plugins/LLMRenamer_0.0.18.0"
+PUBLISH_DIR="/mnt/g/Torrents/jellyfin-llm-renamer/Jellyfin.Plugin.LLMRenamer/publish"
+
+# 1. Build
+cd /mnt/g/Torrents/jellyfin-llm-renamer/Jellyfin.Plugin.LLMRenamer
+dotnet publish -c Release --no-restore -o publish
+
+# 2. Shutdown Jellyfin
+curl -s -X POST "$HOST/System/Shutdown" -H "X-Emby-Token: $API_KEY"
+
+# 3. Wait, then deploy
+sleep 10
+cp "$PUBLISH_DIR/Jellyfin.Plugin.LLMRenamer.dll" "$PLUGIN_DIR/"
+
+# 4. Restart Jellyfin
+curl -s -X POST "$HOST/System/Restart" -H "X-Emby-Token: $API_KEY"
+
+# 5. Wait for Jellyfin to start, then check status
+sleep 30
+curl -s "$HOST/LLMRenamer/Status" -H "X-Emby-Token: $API_KEY"
+```
+
+### Key API Endpoints
+
+```bash
+# Plugin status
+curl -s "$HOST/LLMRenamer/Status" -H "X-Emby-Token: $API_KEY"
+
+# Download native libraries (from LLamaSharp NuGet package)
+curl -s -X POST "$HOST/LLMRenamer/Native/Download" -H "X-Emby-Token: $API_KEY"
+
+# Download a model
+curl -s -X POST "$HOST/LLMRenamer/Models/Download/qwen2.5-0.5b-instruct-q4_k_m" -H "X-Emby-Token: $API_KEY"
+
+# Check download progress
+curl -s "$HOST/LLMRenamer/Models/DownloadProgress" -H "X-Emby-Token: $API_KEY"
+
+# Load/activate a model
+curl -s -X POST "$HOST/LLMRenamer/Models/SetActive/qwen2.5-0.5b-instruct-q4_k_m.gguf" -H "X-Emby-Token: $API_KEY"
+
+# Test LLM rename
+curl -s -X POST "$HOST/LLMRenamer/Test" -H "X-Emby-Token: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"Filename":"The.Matrix.1999.1080p.BluRay.x264-GROUP.mkv"}'
+
+# Native library status
+curl -s "$HOST/LLMRenamer/Native/Status" -H "X-Emby-Token: $API_KEY"
+```
+
+### Important: Native Library Architecture
+
+Native llama.cpp libraries **cannot** live in the plugin install directory (`LLMRenamer_0.0.18.0/`). Jellyfin recursively scans all subdirectories under `plugins/` and tries to load every DLL as a .NET assembly. Native DLLs cause `BadImageFormatException` and the plugin gets disabled.
+
+Instead, native libs are downloaded to the plugin **data** directory (`Jellyfin.Plugin.LLMRenamer/runtimes/{rid}/native/{avx}/`). Jellyfin still scans these and logs errors, but since it's a separate directory from the install folder, the actual plugin remains loaded.
+
+LLamaSharp finds them via `NativeLibraryConfig.All.WithSearchDirectory(dataDir)` which searches for `runtimes/{rid}/native/` subdirectories.
 
 ## Key Files
 

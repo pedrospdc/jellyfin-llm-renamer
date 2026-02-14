@@ -34,7 +34,7 @@ public partial class FileRenamerService
     /// <summary>
     /// Represents a rename operation.
     /// </summary>
-    public record RenameOperation(string OriginalPath, string NewPath, string Reason);
+    public record RenameOperation(string OriginalPath, string NewPath, string Reason, bool IsDirectory = false);
 
     /// <summary>
     /// Generates rename suggestions for items in a library.
@@ -69,6 +69,26 @@ public partial class FileRenamerService
                 if (suggestion != null)
                 {
                     operations.Add(suggestion);
+                }
+
+                // Generate directory renames if enabled
+                if (config.RenameDirectories)
+                {
+                    var dirRenames = item switch
+                    {
+                        Movie movie when config.RenameMovies => GenerateMovieDirectoryRenames(movie),
+                        Episode episode when config.RenameEpisodes => GenerateEpisodeDirectoryRenames(episode),
+                        _ => Enumerable.Empty<RenameOperation>()
+                    };
+
+                    foreach (var dirRename in dirRenames)
+                    {
+                        // Deduplicate: don't add if we already have a rename for the same original path
+                        if (!operations.Any(o => o.OriginalPath == dirRename.OriginalPath))
+                        {
+                            operations.Add(dirRename);
+                        }
+                    }
                 }
             }
             catch (Exception ex)
@@ -162,6 +182,105 @@ public partial class FileRenamerService
 
         var newPath = Path.Combine(directory, newFileName);
         return new RenameOperation(audio.Path, newPath, $"Track: {audio.Album} - {audio.Name}");
+    }
+
+    private IEnumerable<RenameOperation> GenerateMovieDirectoryRenames(Movie movie)
+    {
+        if (string.IsNullOrEmpty(movie.Path))
+        {
+            yield break;
+        }
+
+        var dir = Path.GetDirectoryName(movie.Path);
+        if (string.IsNullOrEmpty(dir))
+        {
+            yield break;
+        }
+
+        var dirName = Path.GetFileName(dir);
+        var parentDir = Path.GetDirectoryName(dir);
+        if (string.IsNullOrEmpty(parentDir) || string.IsNullOrEmpty(dirName))
+        {
+            yield break;
+        }
+
+        var year = movie.ProductionYear;
+        var newDirName = year.HasValue
+            ? $"{movie.Name} ({year})"
+            : movie.Name;
+
+        newDirName = SanitizeDirectoryName(newDirName);
+
+        if (dirName == newDirName)
+        {
+            yield break;
+        }
+
+        var newPath = Path.Combine(parentDir, newDirName);
+        yield return new RenameOperation(dir, newPath, $"Movie directory: {movie.Name}", IsDirectory: true);
+    }
+
+    private IEnumerable<RenameOperation> GenerateEpisodeDirectoryRenames(Episode episode)
+    {
+        if (string.IsNullOrEmpty(episode.Path))
+        {
+            yield break;
+        }
+
+        // Season directory (immediate parent of episode file)
+        var seasonDir = Path.GetDirectoryName(episode.Path);
+        if (string.IsNullOrEmpty(seasonDir))
+        {
+            yield break;
+        }
+
+        var seasonDirName = Path.GetFileName(seasonDir);
+        var seriesDir = Path.GetDirectoryName(seasonDir);
+        if (string.IsNullOrEmpty(seriesDir) || string.IsNullOrEmpty(seasonDirName))
+        {
+            yield break;
+        }
+
+        // Rename season directory to "Season XX"
+        if (episode.ParentIndexNumber.HasValue)
+        {
+            var newSeasonDirName = $"Season {episode.ParentIndexNumber.Value:D2}";
+            if (seasonDirName != newSeasonDirName)
+            {
+                var newSeasonPath = Path.Combine(seriesDir, newSeasonDirName);
+                yield return new RenameOperation(seasonDir, newSeasonPath, $"Season directory: {newSeasonDirName}", IsDirectory: true);
+            }
+        }
+
+        // Series directory (grandparent of episode file)
+        var seriesDirName = Path.GetFileName(seriesDir);
+        var seriesParentDir = Path.GetDirectoryName(seriesDir);
+        if (string.IsNullOrEmpty(seriesParentDir) || string.IsNullOrEmpty(seriesDirName))
+        {
+            yield break;
+        }
+
+        if (!string.IsNullOrEmpty(episode.SeriesName))
+        {
+            var seriesYear = episode.Series?.PremiereDate?.Year;
+            var newSeriesDirName = seriesYear.HasValue
+                ? $"{episode.SeriesName} ({seriesYear})"
+                : episode.SeriesName;
+
+            newSeriesDirName = SanitizeDirectoryName(newSeriesDirName);
+
+            if (seriesDirName != newSeriesDirName)
+            {
+                var newSeriesPath = Path.Combine(seriesParentDir, newSeriesDirName);
+                yield return new RenameOperation(seriesDir, newSeriesPath, $"Series directory: {episode.SeriesName}", IsDirectory: true);
+            }
+        }
+    }
+
+    private static string SanitizeDirectoryName(string name)
+    {
+        // Remove characters invalid in directory names
+        return InvalidCharsRegex().Replace(name, "_").Trim();
     }
 
     private static string BuildMoviePrompt(string originalFileName, Movie movie)
@@ -300,8 +419,11 @@ public partial class FileRenamerService
         CancellationToken cancellationToken = default)
     {
         var count = 0;
+        var allOps = operations.ToList();
 
-        foreach (var op in operations)
+        // Process file renames first
+        var fileOps = allOps.Where(o => !o.IsDirectory).ToList();
+        foreach (var op in fileOps)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -309,7 +431,7 @@ public partial class FileRenamerService
             {
                 if (File.Exists(op.OriginalPath) && !File.Exists(op.NewPath))
                 {
-                    _logger.LogInformation("Renaming: {Original} -> {New}", op.OriginalPath, op.NewPath);
+                    _logger.LogInformation("Renaming file: {Original} -> {New}", op.OriginalPath, op.NewPath);
                     File.Move(op.OriginalPath, op.NewPath);
                     count++;
                 }
@@ -320,17 +442,70 @@ public partial class FileRenamerService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to rename {Original}", op.OriginalPath);
+                _logger.LogError(ex, "Failed to rename file {Original}", op.OriginalPath);
+            }
+        }
+
+        // Process directory renames: deepest paths first so inner dirs are renamed before outer dirs
+        var dirOps = allOps.Where(o => o.IsDirectory)
+            .OrderByDescending(o => o.OriginalPath.Count(c => c == Path.DirectorySeparatorChar || c == Path.AltDirectorySeparatorChar))
+            .ToList();
+
+        // Track renames so we can update subsequent paths when a parent directory is renamed
+        var pathMappings = new List<(string OldPrefix, string NewPrefix)>();
+
+        foreach (var op in dirOps)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                // Apply any earlier path mappings to this operation
+                var currentOriginal = ApplyPathMappings(op.OriginalPath, pathMappings);
+                var currentNew = ApplyPathMappings(op.NewPath, pathMappings);
+
+                if (Directory.Exists(currentOriginal) && !Directory.Exists(currentNew))
+                {
+                    _logger.LogInformation("Renaming directory: {Original} -> {New}", currentOriginal, currentNew);
+                    Directory.Move(currentOriginal, currentNew);
+                    pathMappings.Add((currentOriginal, currentNew));
+                    count++;
+                }
+                else if (Directory.Exists(currentNew))
+                {
+                    _logger.LogWarning("Target directory already exists, skipping: {NewPath}", currentNew);
+                }
+                else if (!Directory.Exists(currentOriginal))
+                {
+                    _logger.LogWarning("Source directory does not exist, skipping: {OriginalPath}", currentOriginal);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to rename directory {Original}", op.OriginalPath);
             }
         }
 
         // Trigger library refresh if any renames occurred
         if (count > 0)
         {
-            _logger.LogInformation("Renamed {Count} files, triggering library scan", count);
+            _logger.LogInformation("Renamed {Count} files/directories, triggering library scan", count);
         }
 
         return Task.FromResult(count);
+    }
+
+    private static string ApplyPathMappings(string path, List<(string OldPrefix, string NewPrefix)> mappings)
+    {
+        foreach (var (oldPrefix, newPrefix) in mappings)
+        {
+            if (path.StartsWith(oldPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                path = newPrefix + path[oldPrefix.Length..];
+            }
+        }
+
+        return path;
     }
 
     private static string GetProviderId(BaseItem item, MetadataProvider provider)

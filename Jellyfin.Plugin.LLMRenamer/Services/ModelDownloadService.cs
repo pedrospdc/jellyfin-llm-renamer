@@ -47,9 +47,10 @@ public class ModelDownloadService : IDisposable
     private readonly string _nativeDirectory;
 
     /// <summary>
-    /// llama.cpp release version to download.
+    /// LLamaSharp.Backend.Cpu NuGet package version to download native libraries from.
+    /// Must match the LLamaSharp version referenced in the project.
     /// </summary>
-    private const string LlamaCppVersion = "b8030";
+    private const string NuGetBackendVersion = "0.25.0";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ModelDownloadService"/> class.
@@ -64,10 +65,10 @@ public class ModelDownloadService : IDisposable
         var pluginDataPath = Plugin.Instance?.DataFolderPath
             ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "jellyfin", "plugins", "LLMRenamer");
         _modelsDirectory = Path.Combine(pluginDataPath, "models");
-        _nativeDirectory = Path.Combine(pluginDataPath, "native");
+        // Native libs go under runtimes/{rid}/native/ so LLamaSharp's WithSearchDirectory can find them
+        _nativeDirectory = Path.Combine(pluginDataPath, "runtimes");
 
         Directory.CreateDirectory(_modelsDirectory);
-        Directory.CreateDirectory(_nativeDirectory);
     }
 
     /// <summary>
@@ -145,15 +146,18 @@ public class ModelDownloadService : IDisposable
     {
         var platform = GetCurrentPlatform();
         var expectedFile = GetNativeLibraryFilename(platform);
-        var fullPath = Path.Combine(_nativeDirectory, expectedFile);
-        var exists = File.Exists(fullPath);
+        // Check if runtimes/{platform}/native/ directory exists with the expected library
+        var nativeDir = Path.Combine(_nativeDirectory, platform, "native");
+        var exists = Directory.Exists(nativeDir) &&
+            Directory.GetDirectories(nativeDir).Any(d =>
+                File.Exists(Path.Combine(d, expectedFile)));
 
         return new NativeLibraryStatus(
             Platform: platform,
             IsInstalled: exists,
             ExpectedFile: expectedFile,
             NativeDirectory: _nativeDirectory,
-            DownloadUrl: GetNativeLibraryDownloadUrl(platform)
+            DownloadUrl: GetNativeLibraryDownloadUrl()
         );
     }
 
@@ -163,14 +167,8 @@ public class ModelDownloadService : IDisposable
     public bool StartNativeLibraryDownload()
     {
         var platform = GetCurrentPlatform();
-        var url = GetNativeLibraryDownloadUrl(platform);
-        var filename = GetPlatformArchiveName(platform, LlamaCppVersion);
-
-        if (string.IsNullOrEmpty(url))
-        {
-            _logger.LogError("No native library download URL for platform: {Platform}", platform);
-            return false;
-        }
+        var url = GetNativeLibraryDownloadUrl();
+        var filename = $"LLamaSharp.Backend.Cpu.{NuGetBackendVersion}.nupkg";
 
         return StartDownloadInternal("native-libs", $"Native Libraries ({platform})", filename, url, 0, isNativeLib: true);
     }
@@ -199,22 +197,9 @@ public class ModelDownloadService : IDisposable
         };
     }
 
-    private static string GetPlatformArchiveName(string platform, string version)
+    private static string GetNativeLibraryDownloadUrl()
     {
-        return platform switch
-        {
-            "win-x64" => $"llama-{version}-bin-win-cpu-x64.zip",
-            "linux-x64" => $"llama-{version}-bin-ubuntu-x64.zip",
-            "osx-x64" => $"llama-{version}-bin-macos-x64.zip",
-            "osx-arm64" => $"llama-{version}-bin-macos-arm64.zip",
-            _ => $"llama-{version}-bin-ubuntu-x64.zip"
-        };
-    }
-
-    private string GetNativeLibraryDownloadUrl(string platform)
-    {
-        var archiveName = GetPlatformArchiveName(platform, LlamaCppVersion);
-        return $"https://github.com/ggerganov/llama.cpp/releases/download/{LlamaCppVersion}/{archiveName}";
+        return $"https://www.nuget.org/api/v2/package/LLamaSharp.Backend.Cpu/{NuGetBackendVersion}";
     }
 
     /// <summary>
@@ -357,33 +342,42 @@ public class ModelDownloadService : IDisposable
         }
     }
 
-    private Task ExtractNativeLibrariesAsync(string zipPath, CancellationToken cancellationToken)
+    private Task ExtractNativeLibrariesAsync(string nupkgPath, CancellationToken cancellationToken)
     {
         return Task.Run(() =>
         {
-            using var archive = ZipFile.OpenRead(zipPath);
-
+            using var archive = ZipFile.OpenRead(nupkgPath);
             var platform = GetCurrentPlatform();
-            var targetFiles = platform switch
-            {
-                "win-x64" => new[] { "llama.dll", "ggml.dll", "ggml-base.dll", "ggml-cpu.dll" },
-                "linux-x64" => new[] { "libllama.so", "libggml.so", "libggml-base.so", "libggml-cpu.so" },
-                _ => new[] { "libllama.dylib", "libggml.dylib", "libggml-base.dylib", "libggml-cpu.dylib" }
-            };
+
+            // NuGet package has: runtimes/{platform}/native/{avx-variant}/{lib-files}
+            // Extract only the current platform's runtimes, preserving directory structure.
+            var prefix = $"runtimes/{platform}/";
+            var extractCount = 0;
 
             foreach (var entry in archive.Entries)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var fileName = Path.GetFileName(entry.FullName);
-                if (targetFiles.Any(t => fileName.Equals(t, StringComparison.OrdinalIgnoreCase)))
-                {
-                    var destPath = Path.Combine(_nativeDirectory, fileName);
-                    _logger.LogDebug("Extracting {File} to {Dest}", entry.FullName, destPath);
+                if (!entry.FullName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    continue;
 
-                    entry.ExtractToFile(destPath, overwrite: true);
+                if (string.IsNullOrEmpty(Path.GetFileName(entry.FullName)) || entry.Length == 0)
+                    continue;
+
+                // Preserve path relative to runtimes/ parent: runtimes/{platform}/native/{variant}/{file}
+                var destPath = Path.Combine(_nativeDirectory, entry.FullName.Substring("runtimes/".Length));
+                var destDir = Path.GetDirectoryName(destPath);
+                if (!string.IsNullOrEmpty(destDir))
+                {
+                    Directory.CreateDirectory(destDir);
                 }
+
+                _logger.LogDebug("Extracting {File} to {Dest}", entry.FullName, destPath);
+                entry.ExtractToFile(destPath, overwrite: true);
+                extractCount++;
             }
+
+            _logger.LogInformation("Extracted {Count} native library files for {Platform}", extractCount, platform);
         }, cancellationToken);
     }
 

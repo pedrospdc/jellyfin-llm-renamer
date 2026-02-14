@@ -268,6 +268,16 @@
                                 Automatically rename new files when they are added to the library.
                             </div>
                         </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="chkRenameDirectories" name="RenameDirectories" />
+                                <span>Rename Parent Directories</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                Also rename parent directories to follow Jellyfin naming conventions (e.g., 'Movie Title (Year)/'). Uses metadata, not LLM.
+                            </div>
+                        </div>
                     </div>
 
                     <div class="verticalSection">
@@ -551,16 +561,25 @@
             }
 
             function setActiveModel(filename) {
+                Dashboard.showLoadingMsg();
+                var statusText = document.getElementById('statusText');
+                var indicator = document.querySelector('#modelStatus .status-indicator');
+                indicator.className = 'status-indicator unloaded';
+                statusText.textContent = 'Loading model...';
+
                 ApiClient.ajax({
                     type: 'POST',
                     url: ApiClient.getUrl('LLMRenamer/Models/SetActive/' + encodeURIComponent(filename))
                 }).then(function() {
+                    Dashboard.hideLoadingMsg();
                     loadLocalModels();
                     loadAvailableModels();
                     loadStatus();
                     loadFormFromConfig();
-                    Dashboard.alert('Model set as active!');
+                    Dashboard.alert('Model set as active and loaded!');
                 }).catch(function(err) {
+                    Dashboard.hideLoadingMsg();
+                    loadStatus();
                     Dashboard.alert('Failed to set model: ' + (err.message || 'Unknown error'));
                 });
             }
@@ -632,6 +651,7 @@
                     document.querySelector('#numMaxTokens').value = config.MaxTokens || 256;
                     document.querySelector('#chkPreviewOnly').checked = config.PreviewOnly !== false;
                     document.querySelector('#chkEnableAutoRename').checked = config.EnableAutoRename === true;
+                    document.querySelector('#chkRenameDirectories').checked = config.RenameDirectories === true;
                     document.querySelector('#chkRenameMovies').checked = config.RenameMovies !== false;
                     document.querySelector('#chkRenameEpisodes').checked = config.RenameEpisodes !== false;
                     document.querySelector('#chkRenameMusic').checked = config.RenameMusic === true;
@@ -680,6 +700,7 @@
                     config.MaxTokens = parseInt(document.querySelector('#numMaxTokens').value, 10) || 256;
                     config.PreviewOnly = document.querySelector('#chkPreviewOnly').checked;
                     config.EnableAutoRename = document.querySelector('#chkEnableAutoRename').checked;
+                    config.RenameDirectories = document.querySelector('#chkRenameDirectories').checked;
                     config.RenameMovies = document.querySelector('#chkRenameMovies').checked;
                     config.RenameEpisodes = document.querySelector('#chkRenameEpisodes').checked;
                     config.RenameMusic = document.querySelector('#chkRenameMusic').checked;

@@ -9,11 +9,12 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <AnalysisMode>AllDisabledByDefault</AnalysisMode>
-    <!-- Exclude native runtimes - Jellyfin tries to load them as assemblies -->
     <PublishSingleFile>false</PublishSingleFile>
   </PropertyGroup>
 
-  <!-- Exclude native runtime files from publish output -->
+  <!-- Exclude native runtime files from publish - Jellyfin scans plugin subdirs
+       and tries to load native DLLs as .NET assemblies, disabling the plugin.
+       Native libs are downloaded to the data directory at runtime instead. -->
   <ItemGroup>
     <Content Remove="runtimes\**" />
     <None Remove="runtimes\**" />
@@ -23,8 +24,13 @@
     <!-- Jellyfin packages - provided by Jellyfin at runtime, don't copy to output -->
     <PackageReference Include="Jellyfin.Controller" Version="10.11.5" Private="false" ExcludeAssets="runtime" />
     <PackageReference Include="Jellyfin.Model" Version="10.11.5" Private="false" ExcludeAssets="runtime" />
-    <PackageReference Include="LLamaSharp" Version="0.21.0" />
-    <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.21.0" />
+    <PackageReference Include="LLamaSharp" Version="0.25.0" />
+    <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.25.0" />
+
+    <!-- Exclude transitive dependencies that Jellyfin already provides at runtime -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="*" ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="*" ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="*" ExcludeAssets="runtime" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>

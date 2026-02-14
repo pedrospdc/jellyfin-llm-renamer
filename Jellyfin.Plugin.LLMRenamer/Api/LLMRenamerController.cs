@@ -286,14 +286,17 @@ public class LLMRenamerController : ControllerBase
     }
 
     /// <summary>
-    /// Sets a local model as the active model.
+    /// Sets a local model as the active model and loads it.
     /// </summary>
     /// <param name="filename">The filename to set as active.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Result of the operation.</returns>
     [HttpPost("Models/SetActive/{**filename}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult SetActiveModel([FromRoute, Required] string filename)
+    public async Task<ActionResult> SetActiveModel(
+        [FromRoute, Required] string filename,
+        CancellationToken cancellationToken)
     {
         var localModels = _modelDownloadService.GetLocalModels();
         var model = localModels.FirstOrDefault(m => m.Filename.Equals(filename, StringComparison.OrdinalIgnoreCase));
@@ -312,9 +315,20 @@ public class LLMRenamerController : ControllerBase
             config.ModelPath = model.FullPath;
             config.ModelName = model.DisplayName;
             Plugin.Instance?.SaveConfiguration();
+
+            // Load the new model so it's ready to use
+            try
+            {
+                await _llmService.LoadModelAsync(model.FullPath, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to load model after setting active");
+                return Ok(new { Message = "Model set as active but failed to load: " + ex.Message, Path = model.FullPath });
+            }
         }
 
-        return Ok(new { Message = "Model set as active", Path = model.FullPath });
+        return Ok(new { Message = "Model set as active and loaded", Path = model.FullPath });
     }
 
     #endregion

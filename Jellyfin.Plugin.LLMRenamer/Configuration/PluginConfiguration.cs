@@ -43,6 +43,11 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool PreviewOnly { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets whether to rename parent directories to follow Jellyfin naming conventions.
+    /// </summary>
+    public bool RenameDirectories { get; set; } = false;
+
+    /// <summary>
     /// Gets or sets whether to rename movie files.
     /// </summary>
     public bool RenameMovies { get; set; } = true;

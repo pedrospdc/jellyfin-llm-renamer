@@ -28,38 +28,22 @@ public class LlamaSharpService : ILlmService
         _logger = logger;
     }
 
-    /// <summary>
-    /// Configures the native library path for LLamaSharp.
-    /// Must be called before any LLamaSharp operations.
-    /// </summary>
-    /// <param name="nativeLibraryPath">Path to directory containing native libraries.</param>
-    public void ConfigureNativeLibrary(string nativeLibraryPath)
+    private void ConfigureNativeLibrary()
     {
         if (_nativeLibraryConfigured)
         {
-            _logger.LogDebug("Native library already configured, skipping");
             return;
         }
 
-        if (!string.IsNullOrEmpty(nativeLibraryPath) && Directory.Exists(nativeLibraryPath))
+        // Native libs live in the plugin data directory under runtimes/{rid}/native/{avx}/
+        // They can't be in the plugin install directory because Jellyfin scans all subdirs
+        // and tries to load native DLLs as .NET assemblies, disabling the plugin.
+        var dataDir = Plugin.Instance?.DataFolderPath;
+        if (!string.IsNullOrEmpty(dataDir))
         {
-            // Find the llama library in the native path
-            var llamaLib = OperatingSystem.IsWindows()
-                ? Path.Combine(nativeLibraryPath, "llama.dll")
-                : OperatingSystem.IsMacOS()
-                    ? Path.Combine(nativeLibraryPath, "libllama.dylib")
-                    : Path.Combine(nativeLibraryPath, "libllama.so");
-
-            if (File.Exists(llamaLib))
-            {
-                _logger.LogInformation("Configuring native library: {Path}", llamaLib);
-                NativeLibraryConfig.All.WithLibrary(llamaLib, null);
-                _nativeLibraryConfigured = true;
-            }
-            else
-            {
-                _logger.LogWarning("Native library not found at: {Path}", llamaLib);
-            }
+            _logger.LogInformation("Configuring LLamaSharp search directory: {Path}", dataDir);
+            NativeLibraryConfig.All.WithSearchDirectory(dataDir);
+            _nativeLibraryConfigured = true;
         }
     }
 
@@ -79,13 +63,7 @@ public class LlamaSharpService : ILlmService
             throw new FileNotFoundException($"Model file not found: {modelPath}");
         }
 
-        // Configure native library path before loading
-        var pluginDataPath = Plugin.Instance?.DataFolderPath;
-        if (!string.IsNullOrEmpty(pluginDataPath))
-        {
-            var nativeLibPath = Path.Combine(pluginDataPath, "native");
-            ConfigureNativeLibrary(nativeLibPath);
-        }
+        ConfigureNativeLibrary();
 
         await Task.Run(() =>
         {

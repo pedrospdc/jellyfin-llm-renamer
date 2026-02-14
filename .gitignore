@@ -45,3 +45,18 @@ models/
 
 # Claude Code
 .claude/
+
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+.playwright-mcp/
+
+# Publish output
+publish/
+
+# Screenshots
+*.png
