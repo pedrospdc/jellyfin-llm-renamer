@@ -32,13 +32,17 @@ jobs:
 
       - name: Get version from tag
         id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: Get plugin version from plugin.json
-        id: plugin_version
         run: |
-          PLUGIN_VERSION=$(jq -r '.version' Jellyfin.Plugin.LLMRenamer/publish/plugin.json)
-          echo "PLUGIN_VERSION=$PLUGIN_VERSION" >> $GITHUB_OUTPUT
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          echo "VERSION=v${TAG_VERSION}" >> $GITHUB_OUTPUT
+          # Convert tag to assembly version format (0.0.5 -> 0.0.5.0)
+          ASSEMBLY_VERSION="${TAG_VERSION}.0"
+          echo "ASSEMBLY_VERSION=$ASSEMBLY_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update plugin.json version
+        run: |
+          jq --arg version "${{ steps.version.outputs.ASSEMBLY_VERSION }}" \
+             '.version = $version' Jellyfin.Plugin.LLMRenamer/plugin.json > plugin.tmp && mv plugin.tmp Jellyfin.Plugin.LLMRenamer/plugin.json
 
       - name: Create plugin zip
         run: |
@@ -59,18 +63,18 @@ jobs:
 
       - name: Update manifest.json
         run: |
-          jq --arg version "${{ steps.plugin_version.outputs.PLUGIN_VERSION }}" \
+          jq --arg version "${{ steps.version.outputs.ASSEMBLY_VERSION }}" \
              --arg url "https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/jellyfin-llm-renamer-${{ steps.version.outputs.VERSION }}.zip" \
              --arg checksum "${{ steps.checksum.outputs.MD5 }}" \
              --arg timestamp "${{ steps.timestamp.outputs.TIMESTAMP }}" \
              '.[0].versions = [{
                version: $version,
-               changelog: .[0].versions[0].changelog,
-               targetAbi: .[0].versions[0].targetAbi,
+               changelog: "Plugin updates and improvements.",
+               targetAbi: "10.11.0.0",
                sourceUrl: $url,
                checksum: $checksum,
                timestamp: $timestamp
-             }] + .[0].versions' manifest.json > manifest.tmp && mv manifest.tmp manifest.json
+             }]' manifest.json > manifest.tmp && mv manifest.tmp manifest.json
 
       - name: Commit manifest update
         run: |

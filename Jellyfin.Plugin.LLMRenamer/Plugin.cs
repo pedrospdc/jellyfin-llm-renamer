@@ -45,8 +45,8 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                 Name = Name,
                 EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.configPage.html",
                 EnableInMainMenu = true,
-                MenuSection = "server",
-                MenuIcon = "edit"
+                MenuSection = "admin",
+                MenuIcon = "auto_fix_high"
             }
         };
     }
