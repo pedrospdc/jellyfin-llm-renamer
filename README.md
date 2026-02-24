@@ -1,4 +1,5 @@
 # Jellyfin LLM File Renamer
+**ATTENTION:** This is pretty crap software that was mostly a study for me. It will obliterate your RAM!
 
 A Jellyfin plugin that uses local AI models (via LLamaSharp) to automatically rename media files following Jellyfin's naming conventions. No external services required - runs entirely locally.
 
